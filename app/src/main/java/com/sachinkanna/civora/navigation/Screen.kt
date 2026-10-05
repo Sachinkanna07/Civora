@@ -6,6 +6,7 @@ package com.sachinkanna.civora.navigation
 sealed class Screen(val route: String) {
     data object Launch : Screen("launch")
     data object Onboarding : Screen("onboarding")
+    data object AuthWelcome : Screen("auth_welcome")
     data object Login : Screen("login")
     data object Register : Screen("register")
     data object RoleSelection : Screen("role_selection")
