@@ -7,6 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sachinkanna.civora.ui.auth.AuthWelcomeScreen
+import com.sachinkanna.civora.ui.auth.LoginScreen
+import com.sachinkanna.civora.ui.auth.RegisterScreen
 import com.sachinkanna.civora.ui.launch.CivoraLaunchScreen
 import com.sachinkanna.civora.ui.onboarding.OnboardingScreen
 
@@ -42,10 +44,38 @@ fun CivoraNavGraph(
         composable(Screen.AuthWelcome.route) {
             AuthWelcomeScreen(
                 onSignInClick = {
-                    // Route to Login in future auth task
+                    navController.navigate(Screen.Login.route)
                 },
                 onCreateAccountClick = {
-                    // Route to Register in future auth task
+                    navController.navigate(Screen.Register.route)
+                }
+            )
+        }
+
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onBackClick = { navController.popBackStack() },
+                onCreateAccountClick = {
+                    navController.navigate(Screen.Register.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                onAuthReady = {
+                    navController.popBackStack(Screen.AuthWelcome.route, inclusive = false)
+                }
+            )
+        }
+
+        composable(Screen.Register.route) {
+            RegisterScreen(
+                onBackClick = { navController.popBackStack() },
+                onSignInClick = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                },
+                onAuthReady = {
+                    navController.popBackStack(Screen.AuthWelcome.route, inclusive = false)
                 }
             )
         }
