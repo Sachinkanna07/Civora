@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -19,9 +18,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,7 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sachinkanna.civora.ui.components.CivoraGradientBackground
-import kotlinx.coroutines.delay
+import com.sachinkanna.civora.data.model.UserRole
 
 @Composable
 fun LoginScreen(
@@ -48,7 +46,7 @@ fun LoginScreen(
     alternateLabel = "Create account",
     onBackClick = onBackClick,
     onAlternateClick = onCreateAccountClick,
-    onSubmit = onAuthReady,
+    onSubmit = { onAuthReady() },
     showName = false,
     modifier = modifier
 )
@@ -57,7 +55,7 @@ fun LoginScreen(
 fun RegisterScreen(
     onBackClick: () -> Unit,
     onSignInClick: () -> Unit,
-    onAuthReady: () -> Unit,
+    onAuthReady: (UserRole) -> Unit,
     modifier: Modifier = Modifier
 ) = AuthFormScreen(
     title = "Create your account",
@@ -67,7 +65,7 @@ fun RegisterScreen(
     alternateLabel = "Sign in",
     onBackClick = onBackClick,
     onAlternateClick = onSignInClick,
-    onSubmit = onAuthReady,
+    onSubmit = { onAuthReady(it ?: UserRole.STUDENT) },
     showName = true,
     modifier = modifier
 )
@@ -81,7 +79,7 @@ private fun AuthFormScreen(
     alternateLabel: String,
     onBackClick: () -> Unit,
     onAlternateClick: () -> Unit,
-    onSubmit: () -> Unit,
+    onSubmit: (UserRole?) -> Unit,
     showName: Boolean,
     modifier: Modifier
 ) {
@@ -91,24 +89,14 @@ private fun AuthFormScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
-    var submitted by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-
+    var selectedRole by remember { mutableStateOf<UserRole?>(null) }
     val emailError = email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
     val passwordError = password.isNotBlank() && password.length < 8
     val confirmError = showName && confirmPassword.isNotBlank() && confirmPassword != password
     val canSubmit = (!showName || name.trim().length >= 2) &&
         email.isNotBlank() && !emailError && password.length >= 8 &&
-        (!showName || (confirmPassword == password && confirmPassword.isNotBlank()))
-
-    LaunchedEffect(isLoading) {
-        if (isLoading) {
-            delay(650)
-            isLoading = false
-            submitted = true
-            onSubmit()
-        }
-    }
+        (!showName || (confirmPassword == password && confirmPassword.isNotBlank())) &&
+        (!showName || selectedRole != null)
 
     CivoraGradientBackground(modifier = modifier) {
         Column(
@@ -125,11 +113,23 @@ private fun AuthFormScreen(
             PasswordField("Password", password, { password = it }, passwordVisible, { passwordVisible = !passwordVisible }, passwordError, "Use at least 8 characters")
             if (showName) PasswordField("Confirm password", confirmPassword, { confirmPassword = it }, confirmVisible, { confirmVisible = !confirmVisible }, confirmError, "Passwords do not match")
 
+            if (showName) {
+                Text("Choose your role", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+                UserRole.entries.forEach { role ->
+                    FilterChip(
+                        selected = selectedRole == role,
+                        onClick = { selectedRole = role },
+                        label = { Text(role.displayName) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(role.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
             Button(
-                onClick = { isLoading = true }, enabled = canSubmit && !isLoading && !submitted,
+                onClick = { onSubmit(selectedRole) }, enabled = canSubmit,
                 modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors()
-            ) { if (isLoading) CircularProgressIndicator(strokeWidth = 2.dp) else Text(submitLabel) }
-            if (submitted) Text("Ready to connect securely.", color = MaterialTheme.colorScheme.secondary)
+            ) { Text(submitLabel) }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Text(alternatePrompt, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = onAlternateClick) { Text(alternateLabel) }
