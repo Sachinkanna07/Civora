@@ -16,6 +16,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import com.sachinkanna.civora.ui.dashboard.RoleDashboard
 import com.sachinkanna.civora.ui.student.StudentShell
+import com.sachinkanna.civora.ui.student.AnnouncementFeed
+import com.sachinkanna.civora.ui.student.AnnouncementDetail
+import com.sachinkanna.civora.ui.student.EventsFeed
+import com.sachinkanna.civora.ui.student.EventDetail
+import com.sachinkanna.civora.viewmodel.AnnouncementViewModel
+import com.sachinkanna.civora.viewmodel.EventsViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun CivoraNavGraph(
@@ -84,7 +91,11 @@ fun CivoraNavGraph(
                 , error = authState.error, loading = authState.loading
             )
         }
-        composable(Screen.StudentDashboard.route) { authState.profile?.let { profile -> StudentShell(profile, onLogout = { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) { inclusive = true } } }) } }
+        composable(Screen.StudentDashboard.route) { authState.profile?.let { profile -> StudentShell(profile, onLogout = { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) { inclusive = true } } }, onAnnouncements = { navController.navigate(Screen.Announcements.route) }, onEvents = { navController.navigate(Screen.Events.route) }) } }
+        composable(Screen.Announcements.route) { val vm: AnnouncementViewModel = viewModel(); AnnouncementFeed(vm,{navController.popBackStack()}) { navController.navigate("${Screen.AnnouncementDetail.route}/${it.id}") } }
+        composable("${Screen.AnnouncementDetail.route}/{id}") { entry -> val vm: AnnouncementViewModel = viewModel(); val id=entry.arguments?.getString("id").orEmpty(); androidx.compose.runtime.LaunchedEffect(id){vm.loadDetail(id)}; val item = vm.state.collectAsState().value.items.firstOrNull(); item?.let { AnnouncementDetail(it){navController.popBackStack()} } ?: androidx.compose.material3.CircularProgressIndicator() }
+        composable(Screen.Events.route) { val vm: EventsViewModel = viewModel(); authState.profile?.let { EventsFeed(vm,it.uid,{navController.popBackStack()}) { navController.navigate("${Screen.EventDetail.route}/${it.id}") } } }
+        composable("${Screen.EventDetail.route}/{id}") { entry -> val vm: EventsViewModel = viewModel(); authState.profile?.let { profile -> val id=entry.arguments?.getString("id").orEmpty(); androidx.compose.runtime.LaunchedEffect(id){vm.loadDetail(id,profile.uid)}; val item = vm.state.collectAsState().value.items.firstOrNull(); item?.let { EventDetail(it,vm,profile.uid){navController.popBackStack()} } ?: androidx.compose.material3.CircularProgressIndicator() } }
         composable(Screen.FacultyDashboard.route) { RoleDashboard(com.sachinkanna.civora.data.model.UserRole.FACULTY, authState.profile?.name.orEmpty()) { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) } } }
         composable(Screen.AdminDashboard.route) { RoleDashboard(com.sachinkanna.civora.data.model.UserRole.ADMIN, authState.profile?.name.orEmpty()) { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) } } }
         composable(Screen.VendorDashboard.route) { RoleDashboard(com.sachinkanna.civora.data.model.UserRole.VENDOR, authState.profile?.name.orEmpty()) { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) } } }

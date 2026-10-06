@@ -15,4 +15,8 @@ sealed class Screen(val route: String) {
     data object AdminDashboard : Screen("admin_dashboard")
     data object VendorDashboard : Screen("vendor_dashboard")
     data object DriverDashboard : Screen("driver_dashboard")
+    data object Announcements : Screen("announcements")
+    data object AnnouncementDetail : Screen("announcement_detail")
+    data object Events : Screen("events")
+    data object EventDetail : Screen("event_detail")
 }
