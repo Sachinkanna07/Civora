@@ -31,16 +31,14 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sachinkanna.civora.ui.components.CivoraGradientBackground
 import com.sachinkanna.civora.data.model.UserRole
-import com.sachinkanna.civora.viewmodel.AuthViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.runtime.collectAsState
 
 @Composable
 fun LoginScreen(
     onBackClick: () -> Unit,
     onCreateAccountClick: () -> Unit,
     onAuth: (String, String) -> Unit,
-    viewModel: AuthViewModel = viewModel(),
+    error: String? = null,
+    loading: Boolean = false,
     modifier: Modifier = Modifier
 ) = AuthFormScreen(
     title = "Welcome back",
@@ -51,8 +49,8 @@ fun LoginScreen(
     onBackClick = onBackClick,
     onAlternateClick = onCreateAccountClick,
     onSubmit = { _, email, password, _ -> onAuth(email, password) },
-    error = viewModel.state.collectAsState().value.error,
-    loading = viewModel.state.collectAsState().value.loading,
+    error = error,
+    loading = loading,
     showName = false,
     modifier = modifier
 )
@@ -62,7 +60,8 @@ fun RegisterScreen(
     onBackClick: () -> Unit,
     onSignInClick: () -> Unit,
     onAuth: (String, String, String, UserRole) -> Unit,
-    viewModel: AuthViewModel = viewModel(),
+    error: String? = null,
+    loading: Boolean = false,
     modifier: Modifier = Modifier
 ) = AuthFormScreen(
     title = "Create your account",
@@ -73,8 +72,8 @@ fun RegisterScreen(
     onBackClick = onBackClick,
     onAlternateClick = onSignInClick,
     onSubmit = { name, email, password, role -> role?.let { onAuth(name, email, password, it) } },
-    error = viewModel.state.collectAsState().value.error,
-    loading = viewModel.state.collectAsState().value.loading,
+    error = error,
+    loading = loading,
     showName = true,
     modifier = modifier
 )

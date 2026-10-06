@@ -15,6 +15,7 @@ import com.sachinkanna.civora.viewmodel.AuthViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import com.sachinkanna.civora.ui.dashboard.RoleDashboard
+import com.sachinkanna.civora.ui.student.StudentShell
 
 @Composable
 fun CivoraNavGraph(
@@ -67,6 +68,7 @@ fun CivoraNavGraph(
                     }
                 },
                 onAuth = { email, password -> authViewModel.login(email, password) }
+                , error = authState.error, loading = authState.loading
             )
         }
 
@@ -79,9 +81,10 @@ fun CivoraNavGraph(
                     }
                 },
                 onAuth = { name, email, password, role -> authViewModel.register(name, email, password, role) }
+                , error = authState.error, loading = authState.loading
             )
         }
-        composable(Screen.StudentDashboard.route) { RoleDashboard(com.sachinkanna.civora.data.model.UserRole.STUDENT, authState.profile?.name.orEmpty()) { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) } } }
+        composable(Screen.StudentDashboard.route) { authState.profile?.let { profile -> StudentShell(profile, onLogout = { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) { inclusive = true } } }) } }
         composable(Screen.FacultyDashboard.route) { RoleDashboard(com.sachinkanna.civora.data.model.UserRole.FACULTY, authState.profile?.name.orEmpty()) { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) } } }
         composable(Screen.AdminDashboard.route) { RoleDashboard(com.sachinkanna.civora.data.model.UserRole.ADMIN, authState.profile?.name.orEmpty()) { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) } } }
         composable(Screen.VendorDashboard.route) { RoleDashboard(com.sachinkanna.civora.data.model.UserRole.VENDOR, authState.profile?.name.orEmpty()) { authViewModel.logout(); navController.navigate(Screen.AuthWelcome.route) { popUpTo(0) } } }

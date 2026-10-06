@@ -15,7 +15,8 @@ class AuthRepository(
         val result = auth.createUserWithEmailAndPassword(email.trim(), password).await()
         val uid = result.user?.uid ?: error("Firebase did not return a user id")
         val profile = UserProfile(uid = uid, name = name.trim(), email = email.trim(), role = role)
-        firestore.collection("users").document(uid).set(profile.toMap(), SetOptions.merge()).await()
+        try { firestore.collection("users").document(uid).set(profile.toMap(), SetOptions.merge()).await() }
+        catch (error: Throwable) { auth.currentUser?.delete()?.await(); throw error }
         return profile
     }
 
@@ -30,7 +31,9 @@ class AuthRepository(
         val data = firestore.collection("users").document(uid).get().await().data
             ?: error("Civora profile is missing")
         val role = UserRole.fromKey(data["role"] as? String) ?: error("Civora profile has an invalid role")
-        return UserProfile(uid, data["name"] as? String ?: "", data["email"] as? String ?: "", role,
+        val name = data["name"] as? String ?: error("Civora profile is incomplete")
+        val email = data["email"] as? String ?: error("Civora profile is incomplete")
+        return UserProfile(uid, name, email, role,
             data["department"] as? String ?: "", data["year"] as? String ?: "", data["profileImage"] as? String ?: "",
             (data["createdAt"] as? Number)?.toLong() ?: 0L)
     }
