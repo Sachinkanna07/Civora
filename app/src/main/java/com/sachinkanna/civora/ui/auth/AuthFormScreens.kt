@@ -31,12 +31,16 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sachinkanna.civora.ui.components.CivoraGradientBackground
 import com.sachinkanna.civora.data.model.UserRole
+import com.sachinkanna.civora.viewmodel.AuthViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
 
 @Composable
 fun LoginScreen(
     onBackClick: () -> Unit,
     onCreateAccountClick: () -> Unit,
-    onAuthReady: () -> Unit,
+    onAuth: (String, String) -> Unit,
+    viewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) = AuthFormScreen(
     title = "Welcome back",
@@ -46,7 +50,9 @@ fun LoginScreen(
     alternateLabel = "Create account",
     onBackClick = onBackClick,
     onAlternateClick = onCreateAccountClick,
-    onSubmit = { onAuthReady() },
+    onSubmit = { _, email, password, _ -> onAuth(email, password) },
+    error = viewModel.state.collectAsState().value.error,
+    loading = viewModel.state.collectAsState().value.loading,
     showName = false,
     modifier = modifier
 )
@@ -55,7 +61,8 @@ fun LoginScreen(
 fun RegisterScreen(
     onBackClick: () -> Unit,
     onSignInClick: () -> Unit,
-    onAuthReady: (UserRole) -> Unit,
+    onAuth: (String, String, String, UserRole) -> Unit,
+    viewModel: AuthViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) = AuthFormScreen(
     title = "Create your account",
@@ -65,7 +72,9 @@ fun RegisterScreen(
     alternateLabel = "Sign in",
     onBackClick = onBackClick,
     onAlternateClick = onSignInClick,
-    onSubmit = { onAuthReady(it ?: UserRole.STUDENT) },
+    onSubmit = { name, email, password, role -> role?.let { onAuth(name, email, password, it) } },
+    error = viewModel.state.collectAsState().value.error,
+    loading = viewModel.state.collectAsState().value.loading,
     showName = true,
     modifier = modifier
 )
@@ -79,8 +88,10 @@ private fun AuthFormScreen(
     alternateLabel: String,
     onBackClick: () -> Unit,
     onAlternateClick: () -> Unit,
-    onSubmit: (UserRole?) -> Unit,
+    onSubmit: (String, String, String, UserRole?) -> Unit,
     showName: Boolean,
+    error: String? = null,
+    loading: Boolean = false,
     modifier: Modifier
 ) {
     var name by remember { mutableStateOf("") }
@@ -107,6 +118,7 @@ private fun AuthFormScreen(
             TextButton(onClick = onBackClick, contentPadding = PaddingValues(0.dp)) { Text("‹ Back") }
             Text(title, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
             Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
             if (showName) AuthField("Full name", name, { name = it }, KeyboardType.Text)
             AuthField("Email address", email, { email = it }, KeyboardType.Email, emailError, "Enter a valid email address")
@@ -127,9 +139,9 @@ private fun AuthFormScreen(
             }
 
             Button(
-                onClick = { onSubmit(selectedRole) }, enabled = canSubmit,
+                onClick = { onSubmit(name, email, password, selectedRole) }, enabled = canSubmit && !loading,
                 modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors()
-            ) { Text(submitLabel) }
+            ) { Text(if (loading) "Please wait…" else submitLabel) }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Text(alternatePrompt, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = onAlternateClick) { Text(alternateLabel) }

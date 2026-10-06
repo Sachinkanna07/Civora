@@ -15,8 +15,6 @@ enum class UserRole(
     DRIVER("driver", "Driver", "Broadcast live bus location, routes & schedule updates");
 
     companion object {
-        fun fromKey(key: String?): UserRole {
-            return entries.find { it.roleKey.equals(key, ignoreCase = true) } ?: STUDENT
-        }
+        fun fromKey(key: String?): UserRole? = entries.find { it.roleKey.equals(key, ignoreCase = true) }
     }
 }
