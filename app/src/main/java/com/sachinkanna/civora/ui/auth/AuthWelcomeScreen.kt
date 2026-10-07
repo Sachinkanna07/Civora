@@ -36,47 +36,43 @@ import com.sachinkanna.civora.ui.theme.Violet500
 fun AuthWelcomeScreen(
     onSignInClick: () -> Unit,
     onCreateAccountClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     CivoraGradientBackground(modifier = modifier) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Header / Brand Branding
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 40.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
             ) {
                 // App Logo Badge
                 Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(
-                            color = Violet500.copy(alpha = 0.2f),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier.size(80.dp)
+                            .background(
+                                color = Violet500.copy(alpha = 0.2f),
+                                shape = CircleShape,
+                            ),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(
-                                color = Violet500,
-                                shape = RoundedCornerShape(16.dp)
-                            ),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier.size(56.dp)
+                                .background(
+                                    color = Violet500,
+                                    shape = RoundedCornerShape(16.dp),
+                                ),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "C",
                             color = Color.White,
                             style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -88,7 +84,7 @@ fun AuthWelcomeScreen(
                     style = MaterialTheme.typography.displayLarge,
                     color = Color.White,
                     fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 2.sp
+                    letterSpacing = 2.sp,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -97,7 +93,7 @@ fun AuthWelcomeScreen(
                     text = "Everything on campus. One app.",
                     style = MaterialTheme.typography.titleMedium,
                     color = Cyan400,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
 
@@ -105,34 +101,33 @@ fun AuthWelcomeScreen(
             CivoraCard(modifier = Modifier.fillMaxWidth()) {
                 Column {
                     Text(
-                        text = "Authentication Hub",
+                        text = "Your campus day starts here",
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Sign in to access your role dashboard or register a new campus user profile.",
+                        text =
+                            "Sign in to your campus account, or create a student account to get started.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
             // Bottom Action Buttons
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 CivoraButton(
                     text = "Sign In",
                     onClick = onSignInClick,
                     containerColor = Violet500,
-                    contentColor = Color.White
+                    contentColor = Color.White,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -141,16 +136,16 @@ fun AuthWelcomeScreen(
                     text = "Create Account",
                     onClick = onCreateAccountClick,
                     containerColor = Navy800,
-                    contentColor = Violet400
+                    contentColor = Violet400,
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Phase 1 Foundation • Auth Ready",
+                    text = "Everything on campus. One app.",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         }
@@ -163,7 +158,7 @@ fun AuthWelcomeScreenPreview() {
     CivoraTheme(darkTheme = true) {
         AuthWelcomeScreen(
             onSignInClick = {},
-            onCreateAccountClick = {}
+            onCreateAccountClick = {},
         )
     }
 }

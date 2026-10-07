@@ -42,47 +42,43 @@ import com.sachinkanna.civora.ui.theme.Violet500
 @Composable
 fun CivoraLaunchScreen(
     onGetStarted: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     CivoraGradientBackground(modifier = modifier) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Header / Brand Branding
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 40.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
             ) {
                 // App Logo Badge
                 Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(
-                            color = Violet500.copy(alpha = 0.2f),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier.size(80.dp)
+                            .background(
+                                color = Violet500.copy(alpha = 0.2f),
+                                shape = CircleShape,
+                            ),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(
-                                color = Violet500,
-                                shape = RoundedCornerShape(16.dp)
-                            ),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier.size(56.dp)
+                                .background(
+                                    color = Violet500,
+                                    shape = RoundedCornerShape(16.dp),
+                                ),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "C",
                             color = Color.White,
                             style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
@@ -94,7 +90,7 @@ fun CivoraLaunchScreen(
                     style = MaterialTheme.typography.displayLarge,
                     color = Color.White,
                     fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 2.sp
+                    letterSpacing = 2.sp,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -103,14 +99,14 @@ fun CivoraLaunchScreen(
                     text = "Everything on campus. One app.",
                     style = MaterialTheme.typography.titleMedium,
                     color = Cyan400,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
 
             // Middle Feature & Role Highlights
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 CivoraCard(modifier = Modifier.fillMaxWidth()) {
                     Column {
@@ -118,15 +114,16 @@ fun CivoraLaunchScreen(
                             text = "One Super-App for Everyone",
                             style = MaterialTheme.typography.titleLarge,
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "Civora connects students, faculty, admin, vendors, and drivers into a unified campus ecosystem.",
+                            text =
+                                "Civora connects students, faculty, admin, vendors, and drivers into a unified campus ecosystem.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -134,19 +131,20 @@ fun CivoraLaunchScreen(
                         // Role Tags Flow Row
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             UserRole.entries.forEach { role ->
-                                val color = when (role) {
-                                    UserRole.STUDENT -> Cyan400
-                                    UserRole.FACULTY -> Violet400
-                                    UserRole.ADMIN -> Amber500
-                                    UserRole.VENDOR -> Emerald500
-                                    UserRole.DRIVER -> Rose500
-                                }
+                                val color =
+                                    when (role) {
+                                        UserRole.STUDENT -> Cyan400
+                                        UserRole.FACULTY -> Violet400
+                                        UserRole.ADMIN -> Amber500
+                                        UserRole.VENDOR -> Emerald500
+                                        UserRole.DRIVER -> Rose500
+                                    }
                                 CivoraChip(
                                     text = role.displayName,
-                                    accentColor = color
+                                    accentColor = color,
                                 )
                             }
                         }
@@ -156,25 +154,23 @@ fun CivoraLaunchScreen(
 
             // Bottom Actions
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 CivoraButton(
                     text = "Get Started",
                     onClick = onGetStarted,
                     containerColor = Violet500,
-                    contentColor = Color.White
+                    contentColor = Color.White,
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Version 1.0.0 • Portfolio Edition",
+                    text = "Everything on campus. One app.",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         }

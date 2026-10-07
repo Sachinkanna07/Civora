@@ -32,13 +32,12 @@ import androidx.compose.ui.unit.dp
 import com.sachinkanna.civora.ui.components.CivoraButton
 import com.sachinkanna.civora.ui.components.CivoraGradientBackground
 import com.sachinkanna.civora.ui.theme.Violet400
-import com.sachinkanna.civora.ui.theme.Violet500
 import kotlinx.coroutines.launch
 
 @Composable
 fun OnboardingScreen(
     onFinishOnboarding: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val pages = OnboardingPages.list
     val pagerState = rememberPagerState(pageCount = { pages.size })
@@ -47,28 +46,22 @@ fun OnboardingScreen(
 
     CivoraGradientBackground(modifier = modifier) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxSize().padding(vertical = 16.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
             // Top Bar with Skip Button
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (!isLastPage) {
-                    TextButton(
-                        onClick = onFinishOnboarding
-                    ) {
+                    TextButton(onClick = onFinishOnboarding) {
                         Text(
                             text = "Skip",
                             style = MaterialTheme.typography.labelLarge,
                             color = Violet400,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 } else {
@@ -79,27 +72,21 @@ fun OnboardingScreen(
             // Middle Horizontal Pager
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                modifier = Modifier.fillMaxWidth().weight(1f),
             ) { pageIndex ->
-                OnboardingPageContent(
-                    pageData = pages[pageIndex]
-                )
+                OnboardingPageContent(pageData = pages[pageIndex])
             }
 
             // Bottom Navigation & Indicator Controls
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // Animated Page Indicator Dots
                 PageIndicatorDots(
                     pageCount = pages.size,
                     currentPage = pagerState.currentPage,
-                    activeColor = pages[pagerState.currentPage].accentColor
+                    activeColor = pages[pagerState.currentPage].accentColor,
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -108,7 +95,7 @@ fun OnboardingScreen(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     // Back Button
                     if (pagerState.currentPage > 0) {
@@ -123,7 +110,7 @@ fun OnboardingScreen(
                                 text = "Back",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                     } else {
@@ -144,7 +131,7 @@ fun OnboardingScreen(
                         },
                         modifier = Modifier.width(160.dp),
                         containerColor = pages[pagerState.currentPage].accentColor,
-                        contentColor = Color.White
+                        contentColor = Color.White,
                     )
                 }
             }
@@ -152,41 +139,35 @@ fun OnboardingScreen(
     }
 }
 
-/**
- * Custom animated page indicator dots.
- */
+/** Custom animated page indicator dots. */
 @Composable
 private fun PageIndicatorDots(
     pageCount: Int,
     currentPage: Int,
     activeColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(pageCount) { index ->
             val isSelected = index == currentPage
-            val width by animateDpAsState(
-                targetValue = if (isSelected) 28.dp else 8.dp,
-                animationSpec = tween(durationMillis = 300),
-                label = "dotWidth"
-            )
-            val color by animateColorAsState(
-                targetValue = if (isSelected) activeColor else Color.White.copy(alpha = 0.3f),
-                animationSpec = tween(durationMillis = 300),
-                label = "dotColor"
-            )
+            val width by
+                animateDpAsState(
+                    targetValue = if (isSelected) 28.dp else 8.dp,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "dotWidth",
+                )
+            val color by
+                animateColorAsState(
+                    targetValue = if (isSelected) activeColor else Color.White.copy(alpha = 0.3f),
+                    animationSpec = tween(durationMillis = 300),
+                    label = "dotColor",
+                )
 
-            Box(
-                modifier = Modifier
-                    .height(8.dp)
-                    .width(width)
-                    .clip(CircleShape)
-                    .background(color)
-            )
+            Box(modifier = Modifier.height(8.dp).width(width).clip(CircleShape).background(color))
         }
     }
 }

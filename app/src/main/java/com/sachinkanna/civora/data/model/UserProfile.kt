@@ -1,8 +1,6 @@
 package com.sachinkanna.civora.data.model
 
-/**
- * Firestore user profile entity.
- */
+/** Firestore user profile entity. */
 data class UserProfile(
     val uid: String = "",
     val name: String = "",
@@ -11,5 +9,8 @@ data class UserProfile(
     val department: String = "",
     val year: String = "",
     val profileImage: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val section: String = "",
+    val routeId: String = "",
+    val notificationsEnabled: Boolean = true,
 )

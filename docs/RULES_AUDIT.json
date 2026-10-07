@@ -1,0 +1,12 @@
+{
+  "score": 4,
+  "summary": "Client rules use server-issued claims, strict profile ownership and bounded field validation. Workflow writes are server-only; public-campus read scope is intentional. Emulator validation is required alongside callable checks. Production release needs institution-specific admission and abuse protection.",
+  "findings": [
+    {
+      "check": "Authority Source",
+      "severity": "minor",
+      "issue": "Students may edit their own academic metadata; department and year are personalization fields, not verified admission or confidentiality boundaries.",
+      "recommendation": "Verify institutional membership through a trusted admission process before using academic metadata for restricted resources."
+    }
+  ]
+}

@@ -8,3 +8,13 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+**/google-services.json
+**/node_modules/
+**/service-account*.json
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+.kotlin/

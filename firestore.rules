@@ -1,0 +1,107 @@
+rules_version = '2';
+// Server-authoritative workflow writes use the Admin SDK. Client rules below
+// permit only own-profile, own-read-state, own-follow and assigned GPS updates.
+// Privileged role = server-issued custom claim; profile.role is never authority.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function authenticated() { return request.auth != null; }
+    function owner(uid) { return authenticated() && request.auth.uid == uid; }
+    function role(value) { return authenticated() && request.auth.token.get('role', 'student') == value; }
+    function admin() { return role('admin'); }
+    function short(value, max) { return value is string && value.size() <= max; }
+    function validUrl(value) { return short(value,2000) && (value == '' || value.matches('https://.*')); }
+    function validUser(d) {
+      return d.keys().hasAll(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt'])
+        && d.keys().hasOnly(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt'])
+        && short(d.uid,128) && short(d.name,100) && d.name.size() >= 2
+        && short(d.email,254) && d.email.matches('[^@ ]+@[^@ ]+\\.[^@ ]+')
+        && d.role in ['student','faculty','admin','vendor','driver']
+        && short(d.department,80) && short(d.year,20) && short(d.section,20)
+        && short(d.routeId,128) && validUrl(d.profileImage)
+        && d.notificationsEnabled is bool && d.createdAt is timestamp;
+    }
+    match /users/{uid} {
+      allow read: if owner(uid) || admin();
+      allow create: if owner(uid) && validUser(request.resource.data)
+        && request.resource.data.uid == uid && request.resource.data.role == 'student'
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.createdAt == request.time;
+      allow update: if owner(uid) && validUser(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','department','year','section','routeId','profileImage','notificationsEnabled'])
+        && (role('student') || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['department','year','section']));
+    }
+    function validDevice(d) { return d.keys().hasAll(['token','updatedAt']) && d.keys().hasOnly(['token','updatedAt']) && short(d.token,4096) && d.token.size() > 20 && d.updatedAt is timestamp; }
+    match /users/{uid}/devices/{deviceId} {
+      allow read, delete: if owner(uid);
+      allow create, update: if owner(uid) && validDevice(request.resource.data) && request.resource.data.updatedAt == request.time;
+    }
+    match /announcements/{id} { allow read: if authenticated(); }
+    match /events/{id} { allow read: if authenticated(); }
+    match /timetables/{id} { allow read: if authenticated(); }
+    match /canteens/{id} { allow read: if authenticated(); }
+    match /menuItems/{id} { allow read: if authenticated(); }
+    match /busRoutes/{id} { allow read: if authenticated(); }
+    match /buses/{id} { allow read: if authenticated(); }
+    match /clubs/{id} { allow read: if authenticated(); }
+    match /campusLocations/{id} { allow read: if authenticated(); }
+    match /eventRegistrations/{id} {
+      allow read: if authenticated() && (resource.data.userId == request.auth.uid || admin() || (role('faculty') && resource.data.organizerId == request.auth.uid));
+    }
+    match /eventAttendance/{id} {
+      allow read: if authenticated() && (resource.data.userId == request.auth.uid || admin() || (role('faculty') && resource.data.organizerId == request.auth.uid));
+    }
+    match /foodOrders/{id} {
+      allow read: if authenticated() && (resource.data.userId == request.auth.uid || admin() || (role('vendor') && resource.data.vendorId == request.auth.uid));
+    }
+    match /campusReports/{id} { allow read: if authenticated() && (resource.data.createdBy == request.auth.uid || admin()); }
+    match /activities/{id} { allow read: if authenticated() && resource.data.userId == request.auth.uid; }
+    function validNotification(d) {
+      return d.keys().hasAll(['userId','title','body','type','status','destination','entityId','createdAt','category','read'])
+        && d.keys().hasOnly(['userId','title','body','type','status','destination','entityId','createdAt','category','read'])
+        && short(d.userId,128) && short(d.title,200) && short(d.body,4000)
+        && short(d.type,40) && short(d.status,40) && short(d.destination,40) && short(d.entityId,256)
+        && d.category in ['URGENT','RELEVANT','DISCOVER'] && d.read is bool && d.createdAt is timestamp;
+    }
+    match /notifications/{id} {
+      allow read: if authenticated() && resource.data.userId == request.auth.uid;
+      allow update: if authenticated() && resource.data.userId == request.auth.uid
+        && validNotification(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) && request.resource.data.read == true;
+    }
+    function validFollow(d) {
+      return d.keys().hasAll(['userId','clubId','createdAt']) && d.keys().hasOnly(['userId','clubId','createdAt'])
+        && short(d.userId,128) && short(d.clubId,128) && d.createdAt is timestamp;
+    }
+    match /clubFollowers/{id} {
+      allow read: if authenticated() && resource.data.userId == request.auth.uid;
+      allow create: if authenticated() && validFollow(request.resource.data)
+        && request.resource.data.userId == request.auth.uid
+        && id == request.resource.data.clubId + '_' + request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && exists(/databases/$(database)/documents/clubs/$(request.resource.data.clubId));
+      allow delete: if authenticated() && resource.data.userId == request.auth.uid;
+    }
+    function validTrip(d) {
+      return d.keys().hasAll(['busId','routeId','driverId','active','startedAt','updatedAt','latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt'])
+        && d.keys().hasOnly(['busId','routeId','driverId','active','startedAt','updatedAt','endedAt','latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt'])
+        && short(d.busId,128) && short(d.routeId,128) && short(d.driverId,128)
+        && d.active is bool && d.startedAt is timestamp && d.updatedAt is timestamp
+        && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
+        && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
+        && d.accuracy is number && d.accuracy >= 0 && d.accuracy <= 200
+        && d.locationUpdatedAt is timestamp && d.locationCapturedAt is timestamp
+        && d.locationCapturedAt <= request.time && d.locationCapturedAt >= request.time - duration.value(60,'s');
+    }
+    match /activeTrips/{id} {
+      allow read: if authenticated();
+      allow update: if role('driver') && resource.data.driverId == request.auth.uid && resource.data.active == true
+        && get(/databases/$(database)/documents/buses/$(resource.data.busId)).data.driverId == request.auth.uid
+        && validTrip(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt'])
+        && request.resource.data.locationUpdatedAt == request.time
+        && (!('locationUpdatedAt' in resource.data) || request.time >= resource.data.locationUpdatedAt + duration.value(14,'s'));
+    }
+    match /roleAudit/{id} { allow read: if admin(); }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

@@ -22,6 +22,9 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        val emulatorHost = providers.gradleProperty("civora.emulatorHost").orElse("").get()
+        require(emulatorHost.matches(Regex("[A-Za-z0-9.:-]*")))
+        resValue("string", "firebase_emulator_host", emulatorHost)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -38,6 +41,7 @@ android {
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
 }
 
@@ -46,6 +50,13 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    implementation("com.google.firebase:firebase-functions-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

@@ -2,7 +2,7 @@ package com.sachinkanna.civora.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Civora Palette — Navy, Violet, Cyan
+// Civora Palette - Navy, Violet, Cyan
 
 // Navy (Primary Base)
 val Navy900 = Color(0xFF0B132B)

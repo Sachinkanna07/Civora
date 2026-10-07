@@ -1,17 +1,152 @@
 package com.sachinkanna.civora.ui.student
+
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.sachinkanna.civora.data.model.UserProfile
-private enum class Tab(val label:String){HOME("Home"),EXPLORE("Explore"),ACTIVITY("Activity"),COMMUNITY("Community"),PROFILE("Profile")}
-@Composable fun StudentShell(profile:UserProfile,onLogout:()->Unit,onAnnouncements:()->Unit={},onEvents:()->Unit={}){var tab by rememberSaveable{mutableStateOf(Tab.HOME)};Scaffold(bottomBar={NavigationBar{Tab.entries.forEach{t->NavigationBarItem(tab==t,{tab=t},{Icon(when(t){Tab.HOME->Icons.Default.Home;Tab.EXPLORE->Icons.Default.Search;Tab.ACTIVITY->Icons.Default.Notifications;Tab.COMMUNITY->Icons.Default.Groups;Tab.PROFILE->Icons.Default.Person},t.label)},label={Text(t.label)})}}}){p->Box(Modifier.padding(p)){when(tab){Tab.HOME->Home(profile,onAnnouncements,onEvents);Tab.EXPLORE->Explore(onAnnouncements,onEvents);Tab.ACTIVITY->Empty("Your activity","Food orders, event registrations and requests will gather here.");Tab.COMMUNITY->Empty("Find your campus crew","Discover clubs and campus groups.");Tab.PROFILE->Profile(profile,onLogout)}}}}
-@Composable private fun Home(profile:UserProfile,onAnnouncements:()->Unit,onEvents:()->Unit){LazyColumn(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){item{Text("Good morning, ${profile.name.ifBlank{"student"}}",style=MaterialTheme.typography.headlineMedium);Text("What’s happening on campus?",color=MaterialTheme.colorScheme.onSurfaceVariant)};item{Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primaryContainer),modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(20.dp)){Text("Civora campus update",style=MaterialTheme.typography.titleLarge);Text("Stay close to the people and moments that make college feel like yours.")}}};item{Text("Quick actions",style=MaterialTheme.typography.titleLarge)};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){AssistChip(onClick={},label={Text("Food")});AssistChip(onClick=onEvents,label={Text("Events")});AssistChip(onClick=onAnnouncements,label={Text("Notices")})}};item{Card(onClick=onEvents,modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Text("Upcoming events",style=MaterialTheme.typography.titleLarge);Text("Discover what’s next on campus.")}}};item{Card(onClick=onAnnouncements,modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Text("Important announcements",style=MaterialTheme.typography.titleLarge);Text("Keep up with campus news and department notices.")}}}}}
-@Composable private fun Explore(onAnnouncements:()->Unit,onEvents:()->Unit){LazyColumn(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){item{Text("Explore campus",style=MaterialTheme.typography.headlineMedium);OutlinedTextField("",{},label={Text("Search campus")},modifier=Modifier.fillMaxWidth())};item{Card(onClick=onEvents,modifier=Modifier.fillMaxWidth()){Text("Events · Find your next highlight",Modifier.padding(18.dp),style=MaterialTheme.typography.titleLarge)}};item{Card(onClick=onAnnouncements,modifier=Modifier.fillMaxWidth()){Text("Announcements · Stay in the loop",Modifier.padding(18.dp),style=MaterialTheme.typography.titleLarge)}};item{Text("Food, bus, hostel, map and community foundations are coming next.",color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-@Composable private fun Profile(profile:UserProfile,onLogout:()->Unit){Column(Modifier.fillMaxSize().padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text("Your profile",style=MaterialTheme.typography.headlineMedium);Text(profile.name,style=MaterialTheme.typography.titleLarge);Text(profile.email,color=MaterialTheme.colorScheme.onSurfaceVariant);AssistChip(onClick={},label={Text(profile.role.displayName)});Text("Department: ${profile.department.ifBlank{"Not set"}}");Text("Year: ${profile.year.ifBlank{"Not set"}}");OutlinedButton(onClick=onLogout,modifier=Modifier.fillMaxWidth()){Text("Log out")}}}
-@Composable private fun Empty(title:String,body:String){Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text(title,style=MaterialTheme.typography.headlineMedium);Text(body,color=MaterialTheme.colorScheme.onSurfaceVariant)}}
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sachinkanna.civora.data.model.*
+import com.sachinkanna.civora.data.repository.*
+import com.sachinkanna.civora.ui.activity.ActivityScreen
+import com.sachinkanna.civora.ui.announcements.AnnouncementsScreen
+import com.sachinkanna.civora.ui.community.ClubsScreen
+import com.sachinkanna.civora.ui.components.*
+import com.sachinkanna.civora.ui.discover.DiscoverScreen
+import com.sachinkanna.civora.ui.events.EventsScreen
+import com.sachinkanna.civora.ui.food.FoodScreen
+import com.sachinkanna.civora.ui.profile.ProfileScreen
+import com.sachinkanna.civora.ui.reports.ReportsScreen
+import com.sachinkanna.civora.ui.timetable.TimetableScreen
+import com.sachinkanna.civora.ui.today.TodayScreen
+import com.sachinkanna.civora.ui.transport.*
+import com.sachinkanna.civora.viewmodel.*
+
+private enum class Tab(val label: String) {
+    TODAY("Today"),
+    DISCOVER("Discover"),
+    ACTION("Action"),
+    ACTIVITY("Activity"),
+    YOU("You"),
+}
+
+@Composable
+fun StudentShell(
+    profile: UserProfile,
+    onLogout: () -> Unit,
+    onRefreshProfile: () -> Unit = {},
+    vm: CampusWorkspaceViewModel = viewModel(),
+) {
+    var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
+    var page by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(profile) { vm.connect(profile) }
+    val state by vm.state.collectAsStateWithLifecycle()
+    val open: (String) -> Unit = { page = it }
+    val back: () -> Unit = { page = null }
+    BackHandler(page != null) { back() }
+    Scaffold(
+        bottomBar = {
+            if (page == null)
+                NavigationBar {
+                    Tab.entries.forEach { t ->
+                        NavigationBarItem(
+                            tab == t,
+                            { tab = t },
+                            {
+                                Icon(
+                                    when (t) {
+                                        Tab.TODAY -> Icons.Default.Today
+                                        Tab.DISCOVER -> Icons.Default.Explore
+                                        Tab.ACTION -> Icons.Default.AddCircle
+                                        Tab.ACTIVITY -> Icons.Default.Notifications
+                                        Tab.YOU -> Icons.Default.Person
+                                    },
+                                    t.label,
+                                )
+                            },
+                            label = { Text(t.label) },
+                        )
+                    }
+                }
+        }
+    ) { padding ->
+        Column(Modifier.padding(padding)) {
+            ActionMessage(state, vm)
+            Box(Modifier.weight(1f)) {
+                when {
+                    page == "Food" || page?.startsWith("Order:") == true ->
+                        FoodScreen(
+                            state,
+                            vm,
+                            back,
+                            page?.substringAfter(':')?.takeIf { page?.startsWith("Order:") == true },
+                        )
+                    page == "Bus" -> TransportScreen(profile, state, vm, back)
+                    page == "Timetable" -> TimetableScreen(state, vm, back)
+                    page == "Report" || page?.startsWith("Report:") == true ->
+                        ReportsScreen(
+                            state,
+                            vm,
+                            back,
+                            reportId =
+                                page?.substringAfter(':')?.takeIf {
+                                    page?.startsWith("Report:") == true
+                                },
+                        )
+                    page == "Events" || page?.startsWith("Event:") == true ->
+                        EventsScreen(
+                            profile,
+                            state,
+                            vm,
+                            back,
+                            page?.substringAfter(':')?.takeIf { page?.startsWith("Event:") == true },
+                        )
+                    page == "Notices" || page?.startsWith("Notice:") == true ->
+                        AnnouncementsScreen(
+                            profile,
+                            state,
+                            vm,
+                            back,
+                            page?.substringAfter(':')?.takeIf {
+                                page?.startsWith("Notice:") == true
+                            },
+                        )
+                    page == "Clubs" -> ClubsScreen(state, vm, back, open)
+                    page == "Campus services" -> CampusLocationsScreen(state, vm, back)
+                    page == "Inbox" -> ActivityScreen(state, vm, open, true, back)
+                    else ->
+                        when (tab) {
+                            Tab.TODAY -> TodayScreen(profile, state, vm, open)
+                            Tab.DISCOVER -> DiscoverScreen(state, vm, open)
+                            Tab.ACTIVITY -> ActivityScreen(state, vm, open)
+                            Tab.YOU ->
+                                ProfileScreen(profile, state, vm, onRefreshProfile, onLogout, open)
+                            Tab.ACTION ->
+                                CampusPage("What do you need?") {
+                                    items(listOf("Food", "Events", "Report", "Bus", "Timetable")) {
+                                        action ->
+                                        CampusCard(
+                                            action,
+                                            when (action) {
+                                                "Food" -> "Order from a campus canteen"
+                                                "Events" -> "Register or show your QR ticket"
+                                                "Report" -> "Tell campus operations about an issue"
+                                                "Bus" -> "Check routes and current trips"
+                                                else -> "Check your next class"
+                                            },
+                                        ) {
+                                            open(action)
+                                        }
+                                    }
+                                }
+                        }
+                }
+            }
+        }
+    }
+}
