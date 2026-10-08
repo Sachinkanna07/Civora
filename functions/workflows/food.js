@@ -2,7 +2,7 @@ const {onCall,HttpsError,db,serverTime,requireAuth,text,id,fail,record,Timestamp
 exports.placeFoodOrder = onCall(async req => {
   const {uid} = requireAuth(req, ['student']); const canteenId = id(req.data.canteenId); const requestId = id(req.data.requestId);
   const cart = req.data.items; if (!Array.isArray(cart) || cart.length < 1 || cart.length > 30) fail('Cart is empty or too large.');
-  cart.forEach(x => id(x.menuItemId)); const orderRef = db.doc(`foodOrders/${uid}_${requestId}`);
+  cart.forEach(x => { if (!x || typeof x !== 'object') throw new HttpsError('invalid-argument', 'Invalid cart item.'); id(x.menuItemId); }); const orderRef = db.doc(`foodOrders/${uid}_${requestId}`);
   return db.runTransaction(async tx => {
     const prior = await tx.get(orderRef); if (prior.exists) return {orderId: prior.id, token: prior.data().token};
     const canteen = await tx.get(db.doc(`canteens/${canteenId}`)); if (!canteen.exists || !canteen.data().open) fail('Canteen is closed.');

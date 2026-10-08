@@ -1,0 +1,137 @@
+{
+  "date": "2026-10-08",
+  "screenshots": [
+    {
+      "path": "screenshots/01-launch.png",
+      "sha256": "6630aa310e74e1f59b9bdfca7ac10f93c1e35cc2b908ef9b7a54a34976d83368",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/02-onboarding.png",
+      "sha256": "13244e47ff1b21d825585054df407c5e6b15ba1400d52e4a3791fc5ca5812948",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/03-login.png",
+      "sha256": "9a4430e2a74b91f6d5e1b9b3fe7f5135509d01298b99df4b28291a06f021321e",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/04-today.png",
+      "sha256": "729f1e9ff133cc00b0964e0b3aa131c989d8095544e0c9583372cdaac7f5469c",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/05-timetable.png",
+      "sha256": "cda64cf456355c0c6166667bf73349ee7b8b9d795af9f5b11525edb232d12676",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/06-events.png",
+      "sha256": "51f35b9387374094bb77fa946f3de57a48ac456bd0a89bb371b283bbbfcd9813",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/07-event-ticket.png",
+      "sha256": "4d97f5f8ce2bf21a857cba5dde8bab37346d59c9307a29ad9462366eccc896ac",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/08-food-cart.png",
+      "sha256": "f6b4977e3b2f7dc77f1782bea9ff419c145f70627b6e57d70444c135e624ac8e",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/08-food-ordering.png",
+      "sha256": "93593738274a6f0808351c7bdce0bf877fbc15f6612cf7c042445368b6312fa6",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/09-bus.png",
+      "sha256": "b0dcffcd200d25e030d68a2a6a9b97cc414baa928937b691199f4793a9a9b915",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/10-reports.png",
+      "sha256": "b153060fdd634928879fa693e88ea7d465543cdba27421f628c1b558052bcc9e",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/11-activity.png",
+      "sha256": "0005ab8314be7151a275a2d8af9c8973c7539c07bd4d01a3189f70eebb14d825",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/12-discover.png",
+      "sha256": "221d20ea1a0993ed2e6a26b9c2c04414badd97a06357993653230485ad984ce7",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/13-profile.png",
+      "sha256": "e4deac664a0931442320dcce5f0bb9c9c7a7d8e277dc357e4c641d1fb19acc87",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/14-admin-dashboard.png",
+      "sha256": "9c0da70be1716473dad9fbef2941e2900cb4eae64d341a43ce340222ea450461",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/15-vendor-dashboard.png",
+      "sha256": "70a14f87f86bcc63cb57bf764e6c3d9c01da94e52220b1bc7865f63971958327",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/16-driver-dashboard.png",
+      "sha256": "2603a54fb657506473ef1b731aee83eaf4ebef79852aa8e74b062151960619ac",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/17-faculty-dashboard.png",
+      "sha256": "17fb3e79bdbe5c01eed60a0c2fd7b8408876d76ae5c0f1f75706817cac2b277d",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/18-dark-faculty.png",
+      "sha256": "0ef9bf906d0b5be3a9c1541144f34b7baeed3ed78aa63e6d3786124a276beecb",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/19-faculty-attendance.png",
+      "sha256": "768d429c6fab74d527baa1fdb1209c08b752bbb3db9daf2d8fd64e8800175d98",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    },
+    {
+      "path": "screenshots/20-driver-ended.png",
+      "sha256": "e8c7ad30a2e21e9905b1665b438b75d926cbd3d6cfcda941bfda38645c971cef",
+      "source": "ADB screencap from com.sachinkanna.civora",
+      "environment": "Pixel_8 Android 15; local demo-civora Firebase emulators; fictional campus"
+    }
+  ],
+  "video": {
+    "path": "Civora-Demo.mp4",
+    "source": "ADB screenrecord",
+    "durationSeconds": 89.4537,
+    "scope": "Representative local student navigation and food workflow; partial coverage"
+  }
+}

@@ -67,8 +67,16 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     }
 
     private fun registerPush() {
-        com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnSuccessListener {
-            com.sachinkanna.civora.data.datasource.CivoraMessagingService.registerDevice(it)
+        // FCM has no local emulator. Demo credentials cannot register real push tokens.
+        if (com.google.firebase.FirebaseApp.getInstance().options.projectId == "demo-civora") return
+        runCatching {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnSuccessListener {
+                com.sachinkanna.civora.data.datasource.CivoraMessagingService.registerDevice(it)
+            }.addOnFailureListener {
+                android.util.Log.w("CivoraPush", "Push registration unavailable", it)
+            }
+        }.onFailure {
+            android.util.Log.w("CivoraPush", "Push initialization unavailable", it)
         }
     }
 

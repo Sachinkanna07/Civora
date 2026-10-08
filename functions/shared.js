@@ -11,6 +11,7 @@ function requireAuth(req, roles) {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in to continue.');
   const role = req.auth.token.role || 'student';
   if (roles && !roles.includes(role)) throw new HttpsError('permission-denied', 'Your role cannot perform this action.');
+  if (!req.data || typeof req.data !== 'object' || Array.isArray(req.data)) throw new HttpsError('invalid-argument', 'Expected form fields.');
   return {uid: req.auth.uid, role};
 }
 function text(value, max = 200, required = true) {

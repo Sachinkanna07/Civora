@@ -20,20 +20,26 @@ class MainActivity : ComponentActivity() {
             (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0 &&
                 emulatorHost.isNotBlank()
         ) {
-            com.google.firebase.FirebaseApp.getApps(this).firstOrNull()?.delete()
-            com.google.firebase.FirebaseApp.initializeApp(
-                this,
-                com.google.firebase.FirebaseOptions.Builder()
-                    .setProjectId("demo-civora")
-                    .setApplicationId("1:123456789:android:civora")
-                    .setApiKey("demo-key-not-a-secret")
-                    .build(),
-            )
-            com.google.firebase.auth.FirebaseAuth.getInstance().useEmulator(emulatorHost, 9099)
-            com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                .useEmulator(emulatorHost, 8080)
-            com.google.firebase.functions.FirebaseFunctions.getInstance()
-                .useEmulator(emulatorHost, 5001)
+            // Activity recreation (for example a theme change) retains ViewModels.
+            // Replacing their Firebase app would disconnect existing listeners.
+            if (com.google.firebase.FirebaseApp.getApps(this).firstOrNull()?.options?.projectId != "demo-civora") {
+                com.google.firebase.FirebaseApp.getApps(this).firstOrNull()?.delete()
+                com.google.firebase.FirebaseApp.initializeApp(
+                    this,
+                    com.google.firebase.FirebaseOptions.Builder()
+                        .setProjectId("demo-civora")
+                        .setApplicationId("1:123456789:android:c1a0c1a0c1a0c1a0")
+                        // Syntactically valid placeholders satisfy SDK validation; all data
+                        // services below are redirected to the isolated demo emulators.
+                        .setApiKey("AIza" + "0".repeat(35))
+                        .build(),
+                )
+                com.google.firebase.auth.FirebaseAuth.getInstance().useEmulator(emulatorHost, 9099)
+                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .useEmulator(emulatorHost, 8080)
+                com.google.firebase.functions.FirebaseFunctions.getInstance()
+                    .useEmulator(emulatorHost, 5001)
+            }
         }
         enableEdgeToEdge()
         setContent {

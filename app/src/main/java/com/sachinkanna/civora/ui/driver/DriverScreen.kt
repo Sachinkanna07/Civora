@@ -42,6 +42,8 @@ fun DriverScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, logout: ()
     val trip = state.values<ActiveTrip>(CampusFeed.TRIPS).find { it.busId == bus?.id }
     val route = state.values<BusRoute>(CampusFeed.ROUTES).find { it.id == bus?.routeId }
     DisposableEffect(trip?.id, permission, owner) {
+        if (trip == null) locationState = "Location sharing paused"
+        else if (!permission) locationState = "Location permission needed"
         val source =
             if (trip != null && permission)
                 DriverLocationSource(context, trip.id) { locationState = it }

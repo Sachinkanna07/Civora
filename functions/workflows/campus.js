@@ -13,9 +13,15 @@ exports.manageCampusData = onCall(async req => {
     default: fail('Unsupported campus collection.');
   }
   if(collection==='buses') {
-    const [driver,route,trip]=await Promise.all([getAuth().getUser(value.driverId),db.doc(`busRoutes/${value.routeId}`).get(),db.doc(`activeTrips/${entityId}`).get()]);
-    if(driver.customClaims?.role!=='driver'||!route.exists)fail('Assign an existing driver and route.');
-    if(trip.exists&&trip.data().active)fail('End the active trip before editing this assignment.');
+    const driver=await getAuth().getUser(value.driverId);
+    if(driver.customClaims?.role!=='driver')fail('Assign an existing driver and route.');
+    await db.runTransaction(async tx=>{
+      const [route,trip]=await Promise.all([tx.get(db.doc(`busRoutes/${value.routeId}`)),tx.get(db.doc(`activeTrips/${entityId}`))]);
+      if(!route.exists)fail('Assign an existing driver and route.');
+      if(trip.exists&&trip.data().active)fail('End the active trip before editing this assignment.');
+      tx.set(db.doc(`buses/${entityId}`),value);
+    });
+    return {success:true};
   }
   if(collection==='canteens') {const vendor=await getAuth().getUser(value.vendorId);if(vendor.customClaims?.role!=='vendor')fail('Assign an existing vendor account.');}
   if(collection==='menuItems'&&!(await db.doc(`canteens/${value.canteenId}`).get()).exists)fail('Create the canteen first.');

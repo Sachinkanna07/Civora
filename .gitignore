@@ -18,3 +18,9 @@ firestore-debug.log
 ui-debug.log
 
 .kotlin/
+
+# Local runtime artifacts; keep demo instructions and captures in source control.
+/demo/apk/
+/demo/*.mp4
+/demo/emulator-data/
+/demo/__pycache__/
