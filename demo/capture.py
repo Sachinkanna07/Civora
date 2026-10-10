@@ -42,13 +42,16 @@ elif command == 'tap':
 elif command == 'input':
     tap(sys.argv[2])
     adb('shell', 'input', 'text', sys.argv[3].replace(' ', '%s'))
-elif command == 'capture':
+elif command in ('capture', 'capture-v2', 'capture-final'):
     time.sleep(1)
     visible = nodes()
     if not any(n.get('package') == 'com.sachinkanna.civora' for n in visible):
         raise ValueError('Civora is not visible; refusing to label another app as Civora')
-    destination = ROOT / 'screenshots' / sys.argv[2]
-    destination.parent.mkdir(exist_ok=True)
+    if not re.fullmatch(r'[A-Za-z0-9_-]+\.png',sys.argv[2]):
+        raise ValueError('Use a simple PNG filename')
+    directory = 'final/screenshots' if command == 'capture-final' else 'v2/screenshots' if command == 'capture-v2' else 'screenshots'
+    destination = ROOT / directory / sys.argv[2]
+    destination.parent.mkdir(parents=True, exist_ok=True)
     adb('shell', 'screencap', '-p', '/sdcard/civora-capture.png')
     adb('pull', '/sdcard/civora-capture.png', str(destination))
     print(destination)

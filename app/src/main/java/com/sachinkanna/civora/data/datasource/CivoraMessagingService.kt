@@ -45,8 +45,8 @@ class CivoraMessagingService : FirebaseMessagingService() {
                 val intent =
                     PendingIntent.getActivity(
                         this,
-                        0,
-                        Intent(this, MainActivity::class.java),
+                        (message.data["notificationId"] ?: message.messageId ?: "campus").hashCode(),
+                        Intent(this, MainActivity::class.java).putExtra("civora_user",uid).putExtra("civora_destination",message.data["destination"]).putExtra("civora_entity",message.data["entityId"]),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     )
                 val notification =

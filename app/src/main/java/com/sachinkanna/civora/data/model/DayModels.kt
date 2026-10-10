@@ -18,13 +18,13 @@ data class TimetableEntry(
 
 data class ScheduledClass(val entry: TimetableEntry, val date: LocalDateTime)
 
-fun nextClass(entries: List<TimetableEntry>, now: LocalDateTime): ScheduledClass? =
+fun nextClass(entries: List<TimetableEntry>, now: LocalDateTime, holidays: Set<LocalDate> = emptySet()): ScheduledClass? =
     (0..7)
         .flatMap { offset ->
             val date = now.toLocalDate().plusDays(offset.toLong())
             entries
                 .filter {
-                    it.dayOfWeek == date.dayOfWeek.value &&
+                    date !in holidays && it.dayOfWeek == date.dayOfWeek.value &&
                         it.startMinute in 0..1439 &&
                         it.endMinute in 1..1440 &&
                         it.endMinute > it.startMinute
@@ -72,6 +72,7 @@ enum class Destination {
     REPORT,
     ANNOUNCEMENT,
     TRANSPORT,
+    TIMETABLE,
 }
 
 data class CampusActivity(

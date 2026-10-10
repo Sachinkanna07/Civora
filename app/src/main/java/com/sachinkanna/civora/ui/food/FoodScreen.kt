@@ -13,174 +13,82 @@ import com.sachinkanna.civora.ui.components.*
 import com.sachinkanna.civora.viewmodel.*
 
 @Composable
-fun FoodScreen(
-    state: WorkspaceState,
-    vm: CampusWorkspaceViewModel,
-    back: () -> Unit,
-    orderId: String? = null,
-    vendor: Boolean = false,
-) {
-    var statusFilter by rememberSaveable { mutableStateOf<FoodOrderStatus?>(null) }
-    var canteenId by rememberSaveable { mutableStateOf<String?>(null) }
-    var requestId by rememberSaveable { mutableStateOf(java.util.UUID.randomUUID().toString()) }
-    val orders = state.values<FoodOrder>(CampusFeed.ORDERS)
-    val canteens = state.values<Canteen>(CampusFeed.CANTEENS)
-    val canteen = canteens.find { it.id == canteenId } ?: canteens.firstOrNull()
-    CampusPage(if (vendor) "Canteen operations" else "Food & orders", back) {
-        if (vendor)
-            item {
-                Text(
-                    "${orders.count {it.status.active}} open | ${orders.count {it.status==FoodOrderStatus.PREPARING}} preparing | ${orders.count {it.status==FoodOrderStatus.READY}} ready",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                FlowRow {
-                    FilterChip(
-                        statusFilter == null,
-                        { statusFilter = null },
-                        label = { Text("All orders") },
-                    )
-                    FoodOrderStatus.entries.forEach { status ->
-                        FilterChip(
-                            statusFilter == status,
-                            { statusFilter = status },
-                            label = { Text(status.name.lowercase()) },
-                        )
-                    }
-                }
+fun FoodScreen(state: WorkspaceState,vm: CampusWorkspaceViewModel,back: ()->Unit,orderId: String?=null,vendor: Boolean=false) {
+    if(vendor) { KitchenScreen(state,vm,back);return }
+    var stage by rememberSaveable { mutableStateOf(if(orderId==null) "Canteens" else "Tracking") }
+    var canteenId by rememberSaveable { mutableStateOf("") }
+    var trackingId by rememberSaveable { mutableStateOf(orderId.orEmpty()) }
+    var replaceWith by remember { mutableStateOf<Canteen?>(null) }
+    var cancelling by remember { mutableStateOf<FoodOrder?>(null) }
+    val canteens=state.values<Canteen>(CampusFeed.CANTEENS)
+    val canteen=canteens.find {it.id==canteenId}
+    val cartKitchen=canteens.find {it.id==state.cart.firstOrNull()?.item?.canteenId}
+    val orders=state.values<FoodOrder>(CampusFeed.ORDERS)
+    LaunchedEffect(state.lastOrderId) {state.lastOrderId?.let {trackingId=it;stage="Tracking"}}
+    val goBack: ()->Unit={when(stage) {"Menu","History","Tracking"->stage="Canteens";"Cart"->stage=if(canteenId.isBlank())"Canteens"else"Menu";"Checkout"->stage="Cart";else->back()}}
+    CampusPage(when(stage) {"Menu"->canteen?.name?:"Menu";"Cart"->"Your cart";"Checkout"->"Review order";"Tracking"->"Order tracking";"History"->"Order history";else->"Campus food"},goBack) {
+        when(stage) {
+            "Canteens"-> {
+                item { SectionTitle("Choose a canteen","Order for pickup. Pay at the counter.") }
+                if(state.cart.isNotEmpty())item { CampusCard("Continue your cart","${state.cart.sumOf {it.quantity}} items · ${money(cartTotal(state.cart))}") {stage="Cart"} }
+                item {TextButton(onClick={stage="History"}) {Text("View my orders")}}
+                feedState(CampusFeed.CANTEENS,state,vm,"Campus canteens will appear here when published.")
+                items(canteens,key={it.id}) {c->CampusCard(c.name,c.preparationMinutes?.let {"Kitchen estimate: $it min"}?:"Preparation estimate not provided",if(!c.open)"Closed"else if(c.paused)"Paused"else"Open") {
+                    if(state.cart.isNotEmpty()&&state.cart.first().item.canteenId!=c.id)replaceWith=c else {canteenId=c.id;stage="Menu"}
+                }}
             }
-        feedState(CampusFeed.CANTEENS, state, vm, "No canteens available.")
-        item {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                canteens.forEach { c ->
-                    FilterChip(
-                        c.id == canteen?.id,
-                        { canteenId = c.id },
-                        label = { Text("${c.name}${if(c.open) "" else " | Closed"}") },
-                    )
-                }
+            "Menu"-> {
+                item {CampusCard(canteen?.name?:"Canteen unavailable",canteen?.preparationMinutes?.let {"Kitchen estimate: $it min · Pay at counter"}?:"Pay at counter",if(canteen?.open!=true)"Closed"else if(canteen.paused)"Paused"else"Open")}
+                if(state.cart.isNotEmpty())item {Button(onClick={stage="Cart"},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("View cart · ${money(cartTotal(state.cart))}")}}
+                feedState(CampusFeed.MENU,state,vm,"This menu has not been published yet.")
+                val menu=state.values<MenuItem>(CampusFeed.MENU).filter {it.canteenId==canteenId}.sortedWith(compareBy({it.category},{it.name}))
+                items(menu,key={it.id}) {m->OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text(m.name,style=MaterialTheme.typography.titleMedium);Text("${m.category} · ${money(m.pricePaise)}")
+                    if(m.description.isNotBlank())Text(m.description)
+                    if(!m.available)StatusPill("Sold out")
+                    val quantity=state.cart.find {it.item.id==m.id}?.quantity?:0
+                    Button(onClick={vm.add(m,1)},enabled=m.available&&canteen?.open==true&&canteen.paused.not()&&!state.busy,modifier=Modifier.heightIn(min=48.dp)) {Text(if(quantity>0)"Add another · $quantity in cart"else"Add to cart")}
+                }}}
             }
-        }
-        if (!vendor && state.cart.isNotEmpty()) {
-            item { Text("Your cart", style = MaterialTheme.typography.titleLarge) }
-            items(state.cart, key = { it.item.id }) { cart ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${cart.item.name} | ${cart.quantity}", Modifier.weight(1f))
-                    TextButton(onClick = { vm.add(cart.item, -1) }) { Text("-") }
-                    TextButton(onClick = { vm.add(cart.item, 1) }) { Text("+") }
-                }
+            "Cart","Checkout"-> {
+                item {SectionTitle(cartKitchen?.name?:"Your canteen",if(stage=="Checkout")"Confirm pickup details before ordering."else"Your cart is saved on this device.")}
+                if(state.cart.isEmpty())item {EmptyState("Your cart is empty","Choose a canteen to add your first item.",action="Browse canteens",onAction={stage="Canteens"})}
+                items(state.cart,key={it.item.id}) {c->OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp)) {
+                    Text(c.item.name,style=MaterialTheme.typography.titleMedium);Text("${money(c.item.pricePaise)} · ${c.quantity} · ${money(c.item.pricePaise*c.quantity)}")
+                    if(!c.item.available)Text("Unavailable. Remove this item to continue.",color=MaterialTheme.colorScheme.error)
+                    if(stage=="Cart")Row {OutlinedButton(onClick={vm.add(c.item,-1)},modifier=Modifier.heightIn(min=48.dp)) {Text("Remove one")};Spacer(Modifier.width(8.dp));OutlinedButton(onClick={vm.add(c.item,1)},enabled=c.item.available&&c.quantity<20,modifier=Modifier.heightIn(min=48.dp)) {Text("Add one")}}
+                }}}
+                if(state.cart.isNotEmpty())item {Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Text("Total ${money(cartTotal(state.cart))}",style=MaterialTheme.typography.titleLarge)
+                    if(stage=="Checkout") {Text("Payment: pay at counter. This app does not collect payment.");Text(cartKitchen?.preparationMinutes?.let {"Kitchen estimate: $it minutes. Actual readiness appears in tracking."}?:"The kitchen has not provided a preparation estimate.")}
+                    val available=cartKitchen?.open==true&&cartKitchen.paused.not()&&state.cart.all {it.item.available}
+                    if(!available)Text("Ordering is paused, closed, or an item is unavailable. Keep your cart and try later.",color=MaterialTheme.colorScheme.error)
+                    Button(onClick={if(stage=="Cart")stage="Checkout"else vm.placeOrder()},enabled=available&&!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text(if(state.busy)"Confirming order?"else if(stage=="Cart")"Review order"else"Confirm pickup order")}
+                    if(stage=="Cart")TextButton(onClick={vm.clearCart()}) {Text("Clear cart")}
+                }}
             }
-            item {
-                Text("Total ${money(cartTotal(state.cart))} | Pay at counter")
-                Button(
-                    onClick = { vm.placeOrder(requestId) },
-                    enabled =
-                        !state.busy &&
-                            canteens.any { it.id == state.cart.first().item.canteenId && it.open },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Place order")
-                }
-                TextButton(
-                    onClick = {
-                        vm.clearCart()
-                        requestId = java.util.UUID.randomUUID().toString()
-                    }
-                ) {
-                    Text("Clear cart")
-                }
-            }
-        }
-        feedState(CampusFeed.MENU, state, vm, "Menu has not been published.")
-        items(
-            state.values<MenuItem>(CampusFeed.MENU).filter { it.canteenId == canteen?.id },
-            key = { "menu${it.id}" },
-        ) { item ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(item.name, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "${money(item.pricePaise)} | ${if(item.available) "Available" else "Unavailable"}"
-                    )
-                    if (vendor)
-                        Button(
-                            onClick = {
-                                vm.action(
-                                    "setMenuAvailability",
-                                    mapOf("menuItemId" to item.id, "available" to !item.available),
-                                )
-                            },
-                            enabled = !state.busy,
-                        ) {
-                            Text(if (item.available) "Mark unavailable" else "Make available")
-                        }
-                    else
-                        Button(
-                            onClick = {
-                                vm.add(item, 1)
-                                requestId = java.util.UUID.randomUUID().toString()
-                            },
-                            enabled = item.available && canteen?.open == true && !state.busy,
-                        ) {
-                            Text("Add to cart")
-                        }
-                }
-            }
-        }
-        item {
-            Text(
-                if (vendor) "Order queue" else "Order history",
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
-        feedState(CampusFeed.ORDERS, state, vm, "No orders yet.")
-        items(
-            orders.filter {
-                (orderId == null || it.id == orderId) &&
-                    (statusFilter == null || it.status == statusFilter)
-            },
-            key = { it.id },
-        ) { order ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Token ${order.token}", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        order.status.name.replace('_', ' '),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(dateTime(order.createdAt))
-                    order.items.forEach { Text("${it.name} | ${it.quantity}") }
-                    Text("${money(order.totalPaise)} | Pay at counter")
-                    if (vendor)
-                        FoodOrderStatus.entries
-                            .filter { order.status.canTransitionTo(it) }
-                            .forEach { next ->
-                                Button(
-                                    onClick = {
-                                        vm.action(
-                                            "updateFoodOrder",
-                                            mapOf("orderId" to order.id, "status" to next.name),
-                                        )
-                                    },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                                ) {
-                                    Text(next.name.lowercase().replaceFirstChar { it.uppercase() })
-                                }
-                            }
-                    else if (order.status == FoodOrderStatus.PLACED)
-                        OutlinedButton(
-                            onClick = {
-                                vm.action(
-                                    "updateFoodOrder",
-                                    mapOf("orderId" to order.id, "status" to "CANCELLED"),
-                                )
-                            },
-                            enabled = !state.busy,
-                        ) {
-                            Text("Cancel order")
-                        }
-                }
+            else-> {
+                feedState(CampusFeed.ORDERS,state,vm,"Your orders and pickup tokens will appear here.")
+                val visible=if(stage=="Tracking")orders.filter {it.id==trackingId}else orders.sortedByDescending {it.createdAt}
+                if(stage=="Tracking"&&visible.isEmpty()&&!state.feed(CampusFeed.ORDERS).loading)item {EmptyState("Waiting for order confirmation","Your order may still be syncing. Reopen order history to check its latest status.")}
+                items(visible,key={it.id}) {o->OrderCard(o,state,vm,false,{cancelling=o})}
             }
         }
     }
+    replaceWith?.let {c->ConfirmationDialog("Switch canteen?","Your current cart will be cleared before opening ${c.name}.","Switch canteen",{vm.clearCart();canteenId=c.id;stage="Menu";replaceWith=null},{replaceWith=null})}
+    cancelling?.let {o->ConfirmationDialog("Cancel pickup order?","Token ${o.token} will be cancelled. The kitchen can no longer prepare it.","Cancel order",{vm.action("updateFoodOrder",mapOf("orderId" to o.id,"status" to "CANCELLED"),"Order cancelled");cancelling=null},{cancelling=null})}
+}
+
+@Composable
+internal fun OrderCard(order: FoodOrder,state: WorkspaceState,vm: CampusWorkspaceViewModel,kitchen: Boolean,onCancel: ()->Unit={}) {
+    OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Text("Token ${order.token}",style=if(kitchen)MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineSmall)
+        StatusPill(order.status.name)
+        Text("${order.canteenName} · ${dateTime(order.createdAt)}",style=MaterialTheme.typography.bodySmall)
+        order.items.forEach {Text("${it.quantity} · ${it.name}",style=MaterialTheme.typography.titleMedium)}
+        Text("${money(order.totalPaise)} · Pay at counter")
+        if(!kitchen)Text(when(order.status) {FoodOrderStatus.PLACED->"Waiting for the kitchen to accept your order.";FoodOrderStatus.ACCEPTED->"Accepted by the kitchen.";FoodOrderStatus.PREPARING->"The kitchen is preparing your food.";FoodOrderStatus.READY->"Ready for pickup. Show this token at the counter.";FoodOrderStatus.COMPLETED->"Pickup complete.";FoodOrderStatus.CANCELLED->"This order was cancelled.";else->"The kitchen could not fulfil this order."})
+        if(kitchen)nextKitchenStatus(order.status)?.let {next->Button(onClick={vm.action("updateFoodOrder",mapOf("orderId" to order.id,"status" to next.name),"Order updated")},enabled=!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=60.dp)) {Text(when(next) {FoodOrderStatus.ACCEPTED->"Accept order";FoodOrderStatus.PREPARING->"Start preparing";FoodOrderStatus.READY->"Mark ready";else->"Confirm pickup"})}}
+        else if(order.status==FoodOrderStatus.PLACED)OutlinedButton(onClick=onCancel,enabled=!state.busy,modifier=Modifier.heightIn(min=48.dp)) {Text("Cancel order")}
+    }}
 }

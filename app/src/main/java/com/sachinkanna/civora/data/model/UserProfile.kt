@@ -13,4 +13,7 @@ data class UserProfile(
     val section: String = "",
     val routeId: String = "",
     val notificationsEnabled: Boolean = true,
+    val boardingStop: String = "",
+    val themePreference: String = "SYSTEM",
+    val kitchenAlerts: Boolean = true,
 )

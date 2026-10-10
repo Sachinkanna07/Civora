@@ -15,8 +15,8 @@ import com.sachinkanna.civora.viewmodel.*
 fun DiscoverScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, open: (String) -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
     val categories =
-        listOf("Events", "Clubs", "Food", "Notices", "Campus services", "Bus", "Timetable")
-    CampusPage("Discover") {
+        listOf("Events", "Clubs", "Food", "Notices", "Campus services", "Bus", "Timetable", "Report", "Mess")
+    CampusPage("Campus services") {
         item {
             OutlinedTextField(
                 search,
@@ -33,6 +33,8 @@ fun DiscoverScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, open: (S
                     "Events" -> "Workshops, festivals and your registrations"
                     "Clubs" -> "Find and follow your campus communities"
                     "Food" -> "Canteens, menus and pickup orders"
+                    "Mess" -> "Meal entitlement, check-in pass and meal history"
+                    "Report" -> "Report an issue and track maintenance progress"
                     "Notices" -> "Academic and department announcements"
                     "Campus services" -> "Find campus places and directions"
                     "Bus" -> "Routes, stops and latest trip location"

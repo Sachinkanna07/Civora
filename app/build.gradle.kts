@@ -1,11 +1,15 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.firebase.crashlytics")
 }
 
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
+
+val signingEnvironment = listOf("CIVORA_KEYSTORE_PATH", "CIVORA_KEYSTORE_PASSWORD", "CIVORA_KEY_ALIAS", "CIVORA_KEY_PASSWORD")
+val releaseSigningAvailable = signingEnvironment.all { !providers.environmentVariable(it).orNull.isNullOrBlank() }
 
 android {
     namespace = "com.sachinkanna.civora"
@@ -19,20 +23,42 @@ android {
         applicationId = "com.sachinkanna.civora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
 
         val emulatorHost = providers.gradleProperty("civora.emulatorHost").orElse("").get()
         require(emulatorHost.matches(Regex("[A-Za-z0-9.:-]*")))
         resValue("string", "firebase_emulator_host", emulatorHost)
+        val isolatedDemo = providers.gradleProperty("civora.emulatorSuite").orElse("").get() == "v2"
+        resValue("string", "firebase_emulator_project", if (isolatedDemo) "demo-civora-v2" else "demo-civora")
+        resValue("integer", "firebase_emulator_auth_port", if (isolatedDemo) "9100" else "9099")
+        resValue("integer", "firebase_emulator_firestore_port", if (isolatedDemo) "8090" else "8080")
+        resValue("integer", "firebase_emulator_functions_port", if (isolatedDemo) "5010" else "5001")
+        resValue("integer", "firebase_emulator_storage_port", if (isolatedDemo) "9190" else "9199")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseSigningAvailable) create("production") {
+            storeFile = file(providers.environmentVariable("CIVORA_KEYSTORE_PATH").get())
+            storePassword = providers.environmentVariable("CIVORA_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("CIVORA_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("CIVORA_KEY_PASSWORD").get()
+        }
+    }
     buildTypes {
+        configureEach {
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = providers.gradleProperty("civora.uploadCrashlyticsMapping").orNull == "true"
+            }
+        }
         release {
             optimization {
-                enable = false
+                enable = true
             }
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseSigningAvailable) signingConfig = signingConfigs.getByName("production")
         }
     }
     compileOptions {
@@ -46,21 +72,27 @@ android {
 }
 
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
-    implementation("com.google.firebase:firebase-functions-ktx")
-    implementation("com.google.firebase:firebase-messaging-ktx")
-    implementation("com.google.android.gms:play-services-location:21.3.0")
-    implementation("com.google.zxing:core:3.5.3")
-    implementation("io.coil-kt:coil-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.coroutines.play.services)
+    implementation(libs.firebase.functions)
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.storage)
+    implementation(libs.firebase.appcheck)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+    implementation(libs.play.services.location)
+    implementation(libs.zxing)
+    implementation(libs.coil.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    testImplementation(libs.coroutines.test)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.compose.icons)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)

@@ -1,0 +1,15 @@
+{
+  "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
+  "storage": { "rules": "storage.rules" },
+  "functions": [{ "source": "functions", "codebase": "civora" }],
+  "emulators": {
+    "auth": { "port": 9100 },
+    "firestore": { "port": 8090 },
+    "functions": { "port": 5010 },
+    "storage": { "port": 9190 },
+    "hub": { "port": 4401 },
+    "logging": { "port": 4501 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}

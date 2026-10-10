@@ -51,8 +51,16 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     }
 
     fun logout() {
-        repository.logout()
-        _state.value = AuthUiState(false)
+        val context=com.google.firebase.FirebaseApp.getInstance().applicationContext
+        com.sachinkanna.civora.data.datasource.TripTrackingService.stop(context)
+        context.getSystemService(android.app.NotificationManager::class.java).cancelAll()
+        com.sachinkanna.civora.DiagnosticsPreferences.update(context,false)
+        com.sachinkanna.civora.AppNavigation.destination.value=null
+        viewModelScope.launch {
+            runCatching { kotlinx.coroutines.withTimeout(3000) { repository.unregisterDevice() } }
+            repository.logout()
+            _state.value = AuthUiState(false)
+        }
     }
 
     private fun submit(action: suspend () -> UserProfile) = viewModelScope.launch {
@@ -68,7 +76,7 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
 
     private fun registerPush() {
         // FCM has no local emulator. Demo credentials cannot register real push tokens.
-        if (com.google.firebase.FirebaseApp.getInstance().options.projectId == "demo-civora") return
+        if (com.google.firebase.FirebaseApp.getInstance().options.projectId?.startsWith("demo-") == true) return
         runCatching {
             com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnSuccessListener {
                 com.sachinkanna.civora.data.datasource.CivoraMessagingService.registerDevice(it)

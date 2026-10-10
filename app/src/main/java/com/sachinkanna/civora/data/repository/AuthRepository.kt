@@ -62,10 +62,33 @@ class AuthRepository(
             data["section"] as? String ?: "",
             data["routeId"] as? String ?: "",
             data["notificationsEnabled"] as? Boolean ?: true,
+            data["boardingStop"] as? String ?: "",
+            data["themePreference"] as? String ?: "SYSTEM",
+            data["kitchenAlerts"] as? Boolean ?: true,
         )
     }
 
     fun logout() = auth.signOut()
+
+    suspend fun unregisterDevice() {
+        val uid=auth.currentUser?.uid ?: return
+        if(com.sachinkanna.civora.FirebaseEnvironment.isDemo)return
+        val token=com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+        val deviceId=java.security.MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString("") { "%02x".format(it) }
+        firestore.collection("users").document(uid).collection("devices").document(deviceId).delete().await()
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().deleteToken().await()
+    }
+
+    suspend fun deleteAccount(password: String) {
+        val user = auth.currentUser ?: error("Sign in again")
+        val email = user.email ?: error("Email authentication is required")
+        user.reauthenticate(com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)).await()
+        com.google.firebase.functions.FirebaseFunctions.getInstance()
+            .getHttpsCallable("requestAccountDeletion").call(mapOf("confirm" to true)).await()
+        val context = com.google.firebase.FirebaseApp.getInstance().applicationContext
+        DeviceCartPersistence(context).clear(user.uid)
+        auth.signOut()
+    }
 
     private fun UserProfile.toMap() =
         mapOf(

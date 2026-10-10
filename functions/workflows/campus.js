@@ -1,16 +1,40 @@
 const {onCall,HttpsError,db,serverTime,requireAuth,text,id,fail,record,Timestamp,getAuth,randomBytes,foodTransitions,reportTransitions,canTransition,hasCapacity,priceOrder} = require('../shared');
-exports.manageCampusData = onCall(async req => {
-  requireAuth(req,['admin']); const d=req.data; const collection=d.collection; const entityId=id(d.id);
+exports.manageCampusData = onCall('manageCampusData',async req => {
+  const {uid}=requireAuth(req,['admin']); const d=req.data; const collection=d.collection; const entityId=d.id?id(d.id):db.collection('campusRecords').doc().id;
   let value;
   switch(collection) {
     case 'canteens': value={name:text(d.name,100),vendorId:id(d.vendorId),open:d.open===true}; break;
-    case 'menuItems': if(!Number.isSafeInteger(d.pricePaise)||d.pricePaise<0||d.pricePaise>100000) fail('Invalid price.'); value={name:text(d.name,100),canteenId:id(d.canteenId),pricePaise:d.pricePaise,available:d.available===true,imageUrl:''}; break;
+    case 'departments': value={name:text(d.name,100),code:text(d.code,80),years:Array.isArray(d.years)?d.years.slice(0,8).map(y=>text(y,20)):['1','2','3','4'],sections:Array.isArray(d.sections)?d.sections.slice(0,20).map(s=>text(s,20)):['A','B']};break;
+    case 'academicCalendar': if(!/^\d{4}-\d{2}-\d{2}$/.test(d.date||''))fail('Choose a calendar date.'); value={date:d.date,title:text(d.title,120),department:text(d.department||'',80,false),holiday:d.holiday===true};break;
+    case 'menuItems': if(!Number.isSafeInteger(d.pricePaise)||d.pricePaise<0||d.pricePaise>100000) fail('Invalid price.'); value={name:text(d.name,100),description:text(d.description||'',500,false),category:text(d.category||'Meals',50),canteenId:id(d.canteenId),pricePaise:d.pricePaise,available:d.available===true,imageUrl:''}; break;
     case 'buses': value={name:text(d.name,100),routeId:id(d.routeId),driverId:id(d.driverId)}; break;
-    case 'busRoutes': if(!Array.isArray(d.stops)||d.stops.length>60) fail('Invalid stops.'); value={name:text(d.name,100),stops:d.stops.map(s=>{if(!Number.isFinite(s.latitude)||Math.abs(s.latitude)>90||!Number.isFinite(s.longitude)||Math.abs(s.longitude)>180)fail('Invalid coordinates.');return {name:text(s.name,100),latitude:s.latitude,longitude:s.longitude};})};break;
+    case 'busRoutes': if(!Array.isArray(d.stops)||d.stops.length>60) fail('Invalid stops.'); value={name:text(d.name,100),contactPhone:text(d.contactPhone||'',30,false),stops:d.stops.map(s=>{if(!s||!Number.isFinite(s.latitude)||Math.abs(s.latitude)>90||!Number.isFinite(s.longitude)||Math.abs(s.longitude)>180)fail('Invalid coordinates.');return {name:text(s.name,100),latitude:s.latitude,longitude:s.longitude};})};break;
     case 'clubs':value={name:text(d.name,100),description:text(d.description,4000),category:text(d.category,50),imageUrl:''};break;
     case 'campusLocations':if(!Number.isFinite(d.latitude)||Math.abs(d.latitude)>90||!Number.isFinite(d.longitude)||Math.abs(d.longitude)>180)fail('Invalid coordinates.');value={name:text(d.name,100),category:text(d.category,50),description:text(d.description||'',2000,false),latitude:d.latitude,longitude:d.longitude};break;
     case 'timetables': if(!Number.isInteger(d.dayOfWeek)||d.dayOfWeek<1||d.dayOfWeek>7||!Number.isInteger(d.startMinute)||!Number.isInteger(d.endMinute)||d.startMinute<0||d.endMinute>1440||d.endMinute<=d.startMinute)fail('Invalid schedule.');value={courseId:id(d.courseId),courseName:text(d.courseName,100),faculty:text(d.faculty,100),dayOfWeek:d.dayOfWeek,startMinute:d.startMinute,endMinute:d.endMinute,room:text(d.room,100),department:text(d.department,80),year:text(d.year,20),section:text(d.section||'',20,false)};break;
     default: fail('Unsupported campus collection.');
+  }
+  if(collection==='timetables') {
+    const ref=db.doc(`timetables/${entityId}`);
+    await db.runTransaction(async tx=>{
+      const old=await tx.get(ref);
+      const days=new Set([value.dayOfWeek,old.data()?.dayOfWeek].filter(Boolean));
+      for(const day of days)await tx.get(db.doc(`scheduleLocks/day_${day}`));
+      const schedules=await tx.get(db.collection('timetables').where('dayOfWeek','==',value.dayOfWeek).limit(1001));
+      if(schedules.size>1000)fail('This day exceeds the scheduling safety limit. Ask an operator to review the timetable dataset.');
+      for(const row of schedules.docs) {
+        if(row.id===entityId)continue;
+        const entry=row.data();const overlaps=entry.startMinute<value.endMinute&&entry.endMinute>value.startMinute;
+        const cohort=entry.department===value.department&&entry.year===value.year&&(!entry.section||!value.section||entry.section===value.section);
+        if(overlaps&&(cohort||String(entry.room||'').toLowerCase()===value.room.toLowerCase()||String(entry.faculty||'').toLowerCase()===value.faculty.toLowerCase()))
+          fail(`Schedule conflicts with ${entry.courseName}. Check the class, room and faculty.`);
+      }
+      const revision=(old.data()?.revision||0)+1;
+      tx.set(ref,{...value,revision,updatedAt:serverTime()});
+      for(const day of days)tx.set(db.doc(`scheduleLocks/day_${day}`),{updatedAt:serverTime()});
+      tx.set(db.collection('operationsAudit').doc(),{actor:uid,collection,entityId,action:old.exists?'UPDATED':'CREATED',createdAt:serverTime()});
+    });
+    return {success:true,id:entityId};
   }
   if(collection==='buses') {
     const driver=await getAuth().getUser(value.driverId);
@@ -20,10 +44,13 @@ exports.manageCampusData = onCall(async req => {
       if(!route.exists)fail('Assign an existing driver and route.');
       if(trip.exists&&trip.data().active)fail('End the active trip before editing this assignment.');
       tx.set(db.doc(`buses/${entityId}`),value);
+      tx.set(db.collection('operationsAudit').doc(),{actor:uid,collection,entityId,action:'ASSIGNMENT_UPDATED',createdAt:serverTime()});
     });
     return {success:true};
   }
   if(collection==='canteens') {const vendor=await getAuth().getUser(value.vendorId);if(vendor.customClaims?.role!=='vendor')fail('Assign an existing vendor account.');}
   if(collection==='menuItems'&&!(await db.doc(`canteens/${value.canteenId}`).get()).exists)fail('Create the canteen first.');
-  await db.doc(`${collection}/${entityId}`).set(value);return {success:true};
+  const batch=db.batch();batch.set(db.doc(`${collection}/${entityId}`),value,{merge:true});
+  batch.set(db.collection('operationsAudit').doc(),{actor:uid,collection,entityId,action:'SAVED',createdAt:serverTime()});
+  await batch.commit();return {success:true,id:entityId};
 });

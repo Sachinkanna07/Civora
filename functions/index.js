@@ -8,3 +8,7 @@ Object.assign(exports,require('./workflows/content'));
 Object.assign(exports,require('./workflows/provisioning'));
 Object.assign(exports,require('./workflows/campus'));
 Object.assign(exports,require('./workflows/notifications'));
+Object.assign(exports,require('./workflows/kitchen'));
+Object.assign(exports,require('./workflows/mess'));
+Object.assign(exports,require('./workflows/analytics'));
+Object.assign(exports,require('./workflows/privacy'));

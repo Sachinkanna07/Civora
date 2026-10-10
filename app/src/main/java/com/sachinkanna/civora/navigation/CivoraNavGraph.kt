@@ -86,7 +86,7 @@ fun CivoraNavGraph(
                         logout,
                         onRefreshProfile = { authViewModel.refreshProfile() },
                     )
-                else RoleDashboard(profile, logout)
+                else RoleDashboard(profile, logout, onRefreshProfile = { authViewModel.refreshProfile() })
             }
         }
     }

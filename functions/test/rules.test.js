@@ -1,10 +1,11 @@
+require('./local-environment');
 const {test,before,after,beforeEach} = require('node:test');
 const fs=require('node:fs');
 const {initializeTestEnvironment,assertSucceeds,assertFails} = require('@firebase/rules-unit-testing');
 const {doc,setDoc,updateDoc,getDoc,collection,getDocs,query,where,orderBy,limit,serverTimestamp,Timestamp} = require('firebase/firestore');
 const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
 let env;
-before(async()=>{if(enabled)env=await initializeTestEnvironment({projectId:'demo-civora',firestore:{rules:fs.readFileSync('../firestore.rules','utf8')}})});
+before(async()=>{if(enabled)env=await initializeTestEnvironment({projectId:process.env.GCLOUD_PROJECT||'demo-civora',firestore:{rules:fs.readFileSync('../firestore.rules','utf8')}})});
 after(async()=>{if(env)await env.cleanup()});
 beforeEach(async()=>{if(env)await env.clearFirestore()});
 const secured=(name,fn)=>test(name,{skip:!enabled},fn);
