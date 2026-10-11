@@ -30,10 +30,10 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
-      # Upload unsigned artifacts only after every required check passes.
+      # Inspection candidate only. The final promotion job waits for all checks.
       - uses: actions/upload-artifact@v4
         with:
-          name: civora-unsigned-release
+          name: civora-unsigned-candidate
           path: |
             app/build/outputs/apk/release/
             app/build/outputs/bundle/release/
@@ -52,7 +52,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm --prefix functions ci
-      - run: npm --prefix functions audit --omit=dev --audit-level=high
+      - run: npm --prefix functions audit --audit-level=high
       - run: npx -y firebase-tools@latest emulators:exec --project demo-civora --only auth,firestore,functions,storage "npm --prefix functions test"
         env:
           FUNCTIONS_DISCOVERY_TIMEOUT: '60'
@@ -79,3 +79,15 @@ jobs:
         with:
           name: device-test-reports
           path: app/build/reports/androidTests/
+  promote-unsigned:
+    needs: [android, backend, device]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: civora-unsigned-candidate
+          path: candidate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: civora-verified-unsigned-release
+          path: candidate

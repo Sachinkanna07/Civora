@@ -1,0 +1,30 @@
+{
+  "score": 4,
+  "summary": "Local source/rules audit and 25 passing isolated backend tests cover verification, protected membership, role/ownership checks, stale privileged claims, workflow races and private media. Live deployment/attestation and remaining lifecycle/cost controls prevent production security certification.",
+  "findings": [
+    {
+      "check": "Cumulative storage and signup abuse",
+      "severity": "moderate",
+      "issue": "Admission and per-call quotas are enforced, but cumulative direct-upload/signup budgets and approved orphan cleanup remain incomplete.",
+      "recommendation": "Complete upload/signup controls and approved cleanup, then configure live cost alerts. Per-account callable quotas do not bound every resource cost."
+    },
+    {
+      "check": "Operational account lifecycle",
+      "severity": "minor",
+      "issue": "Suspension and student deletion are tested; staff responsibility transfer/deletion remains incomplete. Production deletion is intentionally disabled pending approved retention and activation.",
+      "recommendation": "Complete staff transfer/cleanup and an external deletion route. Use the trusted suspension tool rather than relying solely on Auth-console token expiry. Obtain policy approval before activating production deletion."
+    },
+    {
+      "check": "Deployment and monitoring evidence",
+      "severity": "minor",
+      "issue": "The read-only production Firestore request returned SERVICE_DISABLED. Live rules/indexes, App Check, FCM and Crashlytics receipt remain unverified.",
+      "recommendation": "Execute the reviewed release runbook after explicit billing, regions, deployment and signing authorization; validate live negative-permission and attestation cases."
+    },
+    {
+      "check": "Institutional authorization",
+      "severity": "minor",
+      "issue": "Exact-domain verified-email admission and email-bound exceptions are implemented. An email domain does not prove student status or authorize institutional processing.",
+      "recommendation": "Keep roles server-provisioned and exceptions tied to institution-approved references. Confirm controller/publisher, Civora contacts, current campus records and authorization before a live pilot."
+    }
+  ]
+}

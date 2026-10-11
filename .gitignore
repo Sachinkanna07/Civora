@@ -39,4 +39,5 @@ ui-debug.log
 /demo/final/aab/
 /demo/final/*.xml
 /demo/final/*.log
+/demo/final/screenshots/
 /functions/test/fixtures/*.jpg

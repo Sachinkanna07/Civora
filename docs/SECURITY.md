@@ -1,6 +1,22 @@
 # Security and deployment assumptions
 
+## Production completion audit — 11 October 2026
+
+Current additions supersede baseline statements about screen-bound GPS and absent uploads. A visible driver-initiated foreground location service, private report/evidence Storage rules, camera QR scanner, maintenance and mess claim roles now exist in the preserved v2 source. Validation results belong in `PRODUCTION_COMPLETION_TRACKER.md` and the completion report; this section does not itself certify them.
+
+All callables now pass a shared guard that checks current Auth identity/disabled state, compares current server claims with the token, rejects revoked sessions, checks the server-only profile access flag, blocks deletion-in-progress and applies server-selected sharded per-user/function quotas. Production callables require App Check; emulators bypass attestation. Role authorization remains independently enforced inside each workflow. Institution admission and direct Firestore/Storage App Check project enforcement remain external configuration gates.
+
+Privileged direct reads require both the token claim and matching protected profile role, so a server-side role change invalidates old privileged tokens for those reads. The server-only `accessDisabled` profile field blocks direct reads/uploads without waiting for token expiry. Student deletion sets this flag in the same transaction as its receipt; missing profiles fail closed for Storage. Storage reuses its profile lookup and one report lookup to respect the [two-document cross-service limit](https://firebase.google.com/docs/rules/rules-behavior). Trusted operators use `functions/scripts/set-account-access.js UID disable|enable` with explicit project and ADC. Console-only Auth disable/revocation may leave direct cached tokens valid until expiry; update the protected flag first through the tool. Never let clients write access flags or role mirrors.
+
+Student deletion uses recent password confirmation and a durable retrying server job. Rules block users with a deletion receipt; transactional student order/registration/report/pass operations recheck deletion before committing. Auth is removed after cleanup and registration capacity adjustments. Staff self-service deletion is blocked until responsibilities transfer; a complete trusted staff deletion tool remains missing.
+
+Audit review checks create/update parity, exact fields, ownership, claim authority, file type/size, staff assignment and data privacy. Residual risks include unactivated orphan-upload cleanup/retention, missing institutional admission, partial operational audit coverage, staff deletion and live attestation/FCM/GPS validation. Quota shards impose at most 160 accepted calls per user/function/minute but may reject earlier if a shard fills. These are per-account controls, not a global signup or upload budget ceiling.
+
+The initial dependency audit reported nine moderate production-chain findings. After reviewing the official Node Admin migration notes and Node 22 compatibility, dependencies were pinned to `firebase-admin@14.5.0` and `firebase-functions@7.4.0`. A full audit exposed a dev-only gRPC certificate-validation advisory; the dependency override now pins `@grpc/grpc-js@1.14.6`. The executed full audit reports zero vulnerabilities across 294 dependencies. This is dependency evidence, not proof of application security.
+
 ## Trust boundaries
+
+The KPRIET admission layer additionally requires current Auth email verification, a matching verified token, server-only membership grant/email and exact institutional domain or a reviewed email exception. Role prefixes are never inferred from email. Own onboarding profile access precedes admission; campus data, media and mutations do not. Activation and self-deletion are separate pending-identity endpoints, and production deletion is explicitly gated by reviewed retention/activation settings. See `INSTITUTION_CONFIGURATION.md` for exception approval, migration and remaining authorization boundaries.
 
 Public onboarding has no role argument. Android reads privileged roles from Firebase ID token claims; a users document is a profile, not authorization. Callable functions derive UID and role from verified authentication, never request data. Public profile creation permits only student, matching UID/email and server creation time. Profiles cannot edit role, UID, email or creation time. Faculty department cannot be edited through the client. Existing untrusted role values must not become claims during migration.
 
@@ -12,9 +28,9 @@ Do not deploy these rules until legacy profiles/registrations have been normaliz
 
 All campus resources require sign-in. Campus announcements/events/schedules/menu/routes/clubs/places are campus-readable. Department/audience filters personalize discovery; they are **not confidentiality boundaries**. Do not publish confidential staff material into these collections.
 
-Private orders: owner userId, assigned vendorId, or admin. Reports: createdBy or admin. Tickets/attendance: userId, assigned organizerId faculty, or admin. Activities/inbox: own userId only. Profile/devices/follows: own UID only (admin can read profiles). Private queries explicitly contain their ownership where filter; no unrestricted student/vendor collection reads. Trip location writes verify driver claim, trip assignment, current bus assignment and active state. Writes are throttled and captured positions older than 60 seconds are rejected to prevent queued offline data from looking fresh.
+Private orders: owner userId, assigned vendorId, or admin. Reports: createdBy, assigned maintenance worker, or admin. Tickets/attendance: userId, assigned organizerId faculty, or admin. Activities/inbox: own userId only. Profile/devices/follows: own UID only (admin can read profiles). Private queries explicitly contain their ownership where filter; no unrestricted student/vendor collection reads. Trip location writes verify driver claim, trip assignment, current bus assignment and active state. Writes are throttled and captured positions older than 60 seconds are rejected to prevent queued offline data from looking fresh.
 
-Only own notification read flag and own club follow records may change directly. GPS publishes every 15 seconds while the driver screen is resumed. No background tracking. Location permission denial pauses sharing; trips show stale/unavailable states.
+Only own notification read flag and own club follow records may change directly. Driver-initiated GPS sharing runs in a location foreground service with a visible notification and stop action while a trip is active. Location permission denial pauses sharing; trips show stale/unavailable states. Real background execution, battery behavior and moving-device location remain unverified.
 
 ## Prototype rules and attack review
 
@@ -28,7 +44,7 @@ Rules require review before broad rollout. Emulator tests cover:
 - unrelated driver assignment, out-of-range GPS and location write throttling;
 - faculty ticket ownership and denied direct attendance mutation.
 
-Remaining real-world review: institutional identity/email-domain admission policy, campus boundary (this MVP is one campus per Firebase project), abusive signup/callable rate limiting, App Check enforcement, data retention, staff provisioning verification, invitation delivery and role revocation/token refresh behavior. App Check is intentionally not enforced in source until Android attestation is configured; deploy-time policy must be reviewed before public distribution.
+Remaining real-world review: institutional authorization and role provisioning, campus boundary (one campus per Firebase project), signup/upload abuse budgets, direct-service App Check enforcement, approved retention/deletion activation and invitation delivery. Exact-domain verified-email admission and email-bound exceptions are implemented and tested locally. Production callables enforce App Check in source. Register release signing fingerprints and verify attestation before deployment; the emulator bypass is limited to Functions emulator execution.
 
 Firestore rules are validated with the Firestore emulator. Callable workflow tests should also run against Auth/Firestore/Functions emulators; production console/auth/FCM and real GPS need device validation after configuration.
 
