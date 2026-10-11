@@ -19,11 +19,11 @@ fun TodayScreen(
     vm: CampusWorkspaceViewModel,
     open: (String) -> Unit,
 ) {
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    var now by remember { mutableStateOf(com.sachinkanna.civora.data.model.CampusPolicy.now()) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(60_000)
-            now = LocalDateTime.now()
+            now = com.sachinkanna.civora.data.model.CampusPolicy.now()
         }
     }
     val timetable=state.values<TimetableEntry>(CampusFeed.TIMETABLE)

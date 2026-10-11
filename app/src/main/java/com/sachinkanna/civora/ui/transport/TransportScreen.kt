@@ -35,6 +35,7 @@ fun TransportScreen(
     val context = LocalContext.current
     CampusPage("Campus transport", back) {
         feedState(CampusFeed.ROUTES, state, vm, "No routes published yet.")
+        item {Text("Tracking preferences only. Request official route and boarding changes through the campus transport office.",style=MaterialTheme.typography.bodySmall)}
         item {
             FlowRow {
                 routes.forEach { r ->

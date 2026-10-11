@@ -7,6 +7,8 @@ exports.placeFoodOrder = onCall('placeFoodOrder',async req => {
     await require('../shared').requireActiveAccount(tx,uid);
     const prior = await tx.get(orderRef); if (prior.exists) return {orderId: prior.id, token: prior.data().token};
     const canteen = await tx.get(db.doc(`canteens/${canteenId}`)); if (!canteen.exists || !canteen.data().open || canteen.data().paused === true) fail('This canteen is not taking new orders. Your cart is saved.');
+    const kitchenProfile=await tx.get(db.doc(`users/${canteen.data().vendorId}`));
+    if(!kitchenProfile.exists||kitchenProfile.data().role!=='vendor'||kitchenProfile.data().membershipGranted!==true||kitchenProfile.data().accessDisabled===true)fail('This kitchen needs an active campus vendor before accepting orders. Your cart is saved.');
     const snapshots = await Promise.all(cart.map(x => tx.get(db.doc(`menuItems/${x.menuItemId}`))));
     const menu = new Map(snapshots.filter(s => s.exists).map(s => [s.id, s.data()]));
     if (snapshots.some(s => !s.exists || s.data().canteenId !== canteenId)) fail('Items must belong to this canteen.');

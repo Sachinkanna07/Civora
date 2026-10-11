@@ -47,7 +47,10 @@ object FirebaseEnvironment {
         val host=context.getString(R.string.firebase_emulator_host)
         val project=context.getString(R.string.firebase_emulator_project)
         val debug=(context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
-        if(!debug||host.isBlank())return
+        if(!debug||host.isBlank()) {
+            if(FirebaseApp.getApps(context).isEmpty())FirebaseApp.initializeApp(context)
+            return
+        }
         if(FirebaseApp.getApps(context).firstOrNull()?.options?.projectId==project)return
         FirebaseApp.getApps(context).firstOrNull()?.delete()
         FirebaseApp.initializeApp(context,FirebaseOptions.Builder().setProjectId(project).setStorageBucket("$project.appspot.com").setApplicationId("1:123456789:android:c1a0c1a0c1a0c1a0").setApiKey("AIza"+"0".repeat(35)).build())
@@ -55,6 +58,7 @@ object FirebaseEnvironment {
         FirebaseFirestore.getInstance().useEmulator(host,context.resources.getInteger(R.integer.firebase_emulator_firestore_port))
         FirebaseFunctions.getInstance().useEmulator(host,context.resources.getInteger(R.integer.firebase_emulator_functions_port))
         FirebaseStorage.getInstance().useEmulator(host,context.resources.getInteger(R.integer.firebase_emulator_storage_port))
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().isAutoInitEnabled=false
     }
     val isDemo: Boolean get()=runCatching { FirebaseApp.getInstance().options.projectId?.startsWith("demo-")==true }.getOrDefault(false)
 }
@@ -68,6 +72,6 @@ object AppNavigation {
     val destination=MutableStateFlow<String?>(null)
     fun route(kind: String?,id: String?): String? {
         val entity=id.orEmpty();if(entity.isNotBlank()&&!entity.matches(Regex("[A-Za-z0-9_-]{1,257}")))return null
-        return when(kind?.uppercase()) {"EVENT"->if(entity.isNotBlank())"Event:$entity"else"Events";"FOOD"->if(entity.isNotBlank())"Order:$entity"else"Food";"REPORT"->if(entity.isNotBlank())"Report:$entity"else"Report";"ANNOUNCEMENT"->if(entity.isNotBlank())"Notice:$entity"else"Notices";"TRANSPORT"->"Bus";"TIMETABLE"->"Timetable";else->null}
+        return when(kind?.uppercase()) {"EVENT"->if(entity.isNotBlank())"Event:$entity"else"Events";"FOOD"->if(entity.isNotBlank())"Order:$entity"else"Mess";"REPORT"->if(entity.isNotBlank())"Report:$entity"else"Report";"ANNOUNCEMENT"->if(entity.isNotBlank())"Notice:$entity"else"Notices";"TRANSPORT"->"Bus";"TIMETABLE"->"Timetable";else->null}
     }
 }

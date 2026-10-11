@@ -26,7 +26,7 @@ fun ProfileScreen(
     val notificationPermission =
         androidx.activity.compose.rememberLauncherForActivityResult(
             androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-        ) {}
+        ) { granted -> if(granted)refresh() }
     var name by rememberSaveable(profile.uid) { mutableStateOf(profile.name) }
     var department by rememberSaveable(profile.uid) { mutableStateOf(profile.department) }
     var year by rememberSaveable(profile.uid) { mutableStateOf(profile.year) }

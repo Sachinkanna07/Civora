@@ -9,7 +9,7 @@ const db = getFirestore();
 const serverTime = () => FieldValue.serverTimestamp();
 // Apply the same live identity, deletion and abuse checks to every callable.
 // Emulator attestation is deliberately bypassed; production fails closed.
-function onCall(name, handler) {
+function onCall(name, handler, {requiresAdmission=true}={}) {
   if (!/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name) || typeof handler !== 'function') throw new Error('Callable identity is required');
   return firebaseOnCall({enforceAppCheck: process.env.FUNCTIONS_EMULATOR !== 'true', maxInstances: 10}, async req => {
     requireAuth(req);
@@ -21,7 +21,10 @@ function onCall(name, handler) {
       throw new HttpsError('unauthenticated','Your session expired. Sign in again.');
     const [deletion,profile] = await Promise.all([db.doc(`accountDeletions/${req.auth.uid}`).get(),db.doc(`users/${req.auth.uid}`).get()]);
     if (profile.data()?.accessDisabled === true) throw new HttpsError('permission-denied','Your campus access is disabled.');
+    if(profile.data()?.role&&profile.data().role!==(user.customClaims?.role||'student'))throw new HttpsError('permission-denied','Your role changed. Sign in again.');
     if (deletion.exists) throw new HttpsError('failed-precondition','Account deletion is in progress.');
+    if(requiresAdmission&&!require('./admission-policy').hasCampusAccess(user,req.auth.token,profile.data()))
+      throw new HttpsError('permission-denied','Verify your email and obtain campus admission before using campus services.');
     const window = Math.floor(Date.now()/60000);
     // Server-selected shards avoid serializing a lunch rush on one document.
     // Sixteen shards with ten requests each give a hard 160/minute upper bound.
@@ -38,6 +41,7 @@ function onCall(name, handler) {
 function requireAuth(req, roles) {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in to continue.');
   const role = req.auth.token.role || 'student';
+  if(!['student','faculty','admin','vendor','driver','maintenance','mess'].includes(role))throw new HttpsError('permission-denied','Your campus role needs administrator review.');
   if (roles && !roles.includes(role)) throw new HttpsError('permission-denied', 'Your role cannot perform this action.');
   if (!req.data || typeof req.data !== 'object' || Array.isArray(req.data)) throw new HttpsError('invalid-argument', 'Expected form fields.');
   return {uid: req.auth.uid, role};

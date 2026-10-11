@@ -1,8 +1,15 @@
+import java.time.ZoneId
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.firebase.crashlytics")
 }
+
+val campusSettings = groovy.json.JsonSlurper().parse(rootProject.file("functions/campus-config.json")) as Map<*, *>
+fun campusConstant(key: String): String = "\"" + (campusSettings[key] as String).replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+require((campusSettings["emailDomain"] as String).matches(Regex("[a-z0-9.-]+")))
+ZoneId.of(campusSettings["timezone"] as String)
 
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
@@ -36,6 +43,11 @@ android {
         resValue("integer", "firebase_emulator_functions_port", if (isolatedDemo) "5010" else "5001")
         resValue("integer", "firebase_emulator_storage_port", if (isolatedDemo) "9190" else "9199")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "CAMPUS_EMAIL_DOMAIN", campusConstant("emailDomain"))
+        buildConfigField("String", "CAMPUS_TIMEZONE", campusConstant("timezone"))
+        buildConfigField("String", "CAMPUS_NAME", campusConstant("institutionShortName"))
+        buildConfigField("String", "CIVORA_SUPPORT_EMAIL", campusConstant("supportEmail"))
+        buildConfigField("String", "CIVORA_PRIVACY_EMAIL", campusConstant("privacyEmail"))
     }
 
     signingConfigs {
@@ -68,6 +80,7 @@ android {
     buildFeatures {
         compose = true
         resValues = true
+        buildConfig = true
     }
 }
 

@@ -13,12 +13,12 @@ import com.sachinkanna.civora.ui.components.*
 import com.sachinkanna.civora.viewmodel.*
 
 @Composable
-fun MaintenanceScreen(profile: UserProfile,state: WorkspaceState,vm: CampusWorkspaceViewModel,onLogout: ()->Unit) {
-    var selected by rememberSaveable { mutableStateOf<String?>(null) }
+fun MaintenanceScreen(profile: UserProfile,state: WorkspaceState,vm: CampusWorkspaceViewModel,onLogout: ()->Unit,reportId: String?=null,onReportClosed: ()->Unit={}) {
+    var selected by rememberSaveable(reportId) { mutableStateOf(reportId) }
     var closed by rememberSaveable { mutableStateOf(false) }
     val reports=state.values<CampusReport>(CampusFeed.REPORTS)
     val report=reports.find { it.id==selected }
-    CampusPage(if(selected==null) "Assigned maintenance" else "Work details",if(selected!=null)({selected=null})else null) {
+    CampusPage(if(selected==null) "Assigned maintenance" else "Work details",if(selected!=null)({selected=null;onReportClosed()})else null) {
         if(selected==null) {
             item { SectionTitle("Hello, ${profile.name}","Accept assignments, record progress, and request campus review.") }
             item { Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { FilterChip(!closed,{closed=false},label={Text("Active")});FilterChip(closed,{closed=true},label={Text("Completed")}) } }

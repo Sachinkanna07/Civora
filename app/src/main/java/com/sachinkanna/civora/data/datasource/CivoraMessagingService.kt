@@ -26,6 +26,7 @@ class CivoraMessagingService : FirebaseMessagingService() {
             .addOnSuccessListener { profile ->
                 if (FirebaseAuth.getInstance().currentUser?.uid != uid) return@addOnSuccessListener
                 if (profile.getBoolean("notificationsEnabled") == false) return@addOnSuccessListener
+                if(profile.getBoolean("accessDisabled")==true||profile.getBoolean("membershipGranted")!=true)return@addOnSuccessListener
                 if (
                     Build.VERSION.SDK_INT >= 33 &&
                         ContextCompat.checkSelfPermission(
@@ -66,22 +67,26 @@ class CivoraMessagingService : FirebaseMessagingService() {
 
     companion object {
         fun registerDevice(token: String) {
+            if(com.sachinkanna.civora.FirebaseEnvironment.isDemo)return
             val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+            val context=com.google.firebase.FirebaseApp.getInstance().applicationContext
+            if(Build.VERSION.SDK_INT>=33&&ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)return
             val deviceId =
                 java.security.MessageDigest.getInstance("SHA-256")
                     .digest(token.toByteArray())
                     .joinToString("") { "%02x".format(it) }
-            FirebaseFirestore.getInstance()
-                .collection("users")
-                .document(uid)
-                .collection("devices")
-                .document(deviceId)
-                .set(
+            val user=FirebaseFirestore.getInstance().collection("users").document(uid)
+            user.get().addOnSuccessListener {profile->
+                if(FirebaseAuth.getInstance().currentUser?.uid!=uid||profile.getBoolean("notificationsEnabled")==false||profile.getBoolean("accessDisabled")==true||profile.getBoolean("membershipGranted")!=true)return@addOnSuccessListener
+                user.collection("devices").document(deviceId).set(
                     mapOf(
                         "token" to token,
                         "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
                     )
-                )
+                ).addOnSuccessListener {
+                    if(FirebaseAuth.getInstance().currentUser?.uid==uid)context.getSharedPreferences("civora_push_devices",android.content.Context.MODE_PRIVATE).edit().putString(uid,deviceId).apply()
+                }
+            }
         }
     }
 }

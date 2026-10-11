@@ -13,6 +13,7 @@ data class AuthUiState(
     val loading: Boolean = true,
     val profile: UserProfile? = null,
     val error: String? = null,
+    val notice: String? = null,
 )
 
 class AuthViewModel(private val repository: AuthRepository = AuthRepository()) : ViewModel() {
@@ -43,11 +44,33 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     }
 
     fun refreshProfile() = viewModelScope.launch {
-        runCatching { repository.fetchCurrentProfile() }
-            .onSuccess { _state.value = _state.value.copy(profile = it) }
+        runCatching { repository.refreshVerifiedProfile() }
+            .onSuccess { _state.value = _state.value.copy(profile = it); if(it!=null)registerPush() }
             .onFailure {
                 _state.value = _state.value.copy(error = "Profile could not be refreshed.")
             }
+    }
+
+    fun sendVerificationEmail() = viewModelScope.launch {
+        if(_state.value.loading)return@launch
+        _state.value=_state.value.copy(loading=true,error=null,notice=null)
+        runCatching {repository.sendVerificationEmail()}
+            .onSuccess {_state.value=_state.value.copy(loading=false,notice="Verification email sent. Check your inbox and spam folder.")}
+            .onFailure {_state.value=_state.value.copy(loading=false,error="Verification email could not be sent. Wait a moment and try again.")}
+    }
+    fun checkAdmission() = viewModelScope.launch {
+        if(_state.value.loading)return@launch
+        _state.value=_state.value.copy(loading=true,error=null,notice=null)
+        runCatching {repository.refreshVerifiedProfile()}
+            .onSuccess {_state.value=AuthUiState(false,it,notice=if(it?.emailVerified==false)"Your email is still unverified. Complete the link in your inbox first."else null); if(it!=null)registerPush()}
+            .onFailure {_state.value=_state.value.copy(loading=false,error="Campus access could not be checked. Check your connection and retry.")}
+    }
+    fun deletePendingAccount(password: String) = viewModelScope.launch {
+        if(_state.value.loading)return@launch
+        _state.value=_state.value.copy(loading=true,error=null)
+        runCatching {repository.deleteAccount(password)}
+            .onSuccess {_state.value=AuthUiState(false)}
+            .onFailure {_state.value=_state.value.copy(loading=false,error="Account deletion failed. Confirm your password and retry.")}
     }
 
     fun logout() {
@@ -77,8 +100,17 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     private fun registerPush() {
         // FCM has no local emulator. Demo credentials cannot register real push tokens.
         if (com.google.firebase.FirebaseApp.getInstance().options.projectId?.startsWith("demo-") == true) return
+        val profile=_state.value.profile ?: return
+        val context=com.google.firebase.FirebaseApp.getInstance().applicationContext
+        val permitted=android.os.Build.VERSION.SDK_INT<33||androidx.core.content.ContextCompat.checkSelfPermission(context,android.Manifest.permission.POST_NOTIFICATIONS)==android.content.pm.PackageManager.PERMISSION_GRANTED
+        if(!profile.campusAdmitted||!profile.notificationsEnabled||!permitted) {
+            viewModelScope.launch {runCatching {kotlinx.coroutines.withTimeout(3000){repository.unregisterDevice()}}}
+            return
+        }
         runCatching {
-            com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnSuccessListener {
+            val messaging=com.google.firebase.messaging.FirebaseMessaging.getInstance()
+            messaging.isAutoInitEnabled=true
+            messaging.token.addOnSuccessListener {
                 com.sachinkanna.civora.data.datasource.CivoraMessagingService.registerDevice(it)
             }.addOnFailureListener {
                 android.util.Log.w("CivoraPush", "Push registration unavailable", it)

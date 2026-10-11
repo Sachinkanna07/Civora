@@ -7,11 +7,11 @@ const enabled=!!process.env.FIRESTORE_EMULATOR_HOST&&!!process.env.FIREBASE_STOR
 before(async()=>{if(enabled){const [host,port]=process.env.FIREBASE_STORAGE_EMULATOR_HOST.split(':');env=await initializeTestEnvironment({projectId:process.env.GCLOUD_PROJECT||'demo-civora',firestore:{rules:fs.readFileSync('../firestore.rules','utf8')},storage:{host,port:Number(port),rules:fs.readFileSync('../storage.rules','utf8')}});}});
 after(async()=>{if(env)await env.cleanup();});
 const secured=(name,fn)=>test(name,{skip:!enabled},fn);
-const user=(uid,role)=>env.authenticatedContext(uid,{email:`${uid}@example.com`,role});
-async function seed(path,value){await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),path),value));}
+const user=(uid,role)=>env.authenticatedContext(uid,{email:`${uid}@kpriet.ac.in`,email_verified:true,role});
+async function seed(path,value){if(path.startsWith('users/'))value={membershipGranted:true,membershipEmail:`${path.split('/')[1].toLowerCase()}@kpriet.ac.in`,...value};await env.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),path),value));}
 secured('maintenance reports/history require assignment; staff directory remains private',async()=>{
   const report={createdBy:'v2student',assignedTo:'v2worker',status:'IN_PROGRESS'};
-  await seed('users/v2worker',{role:'maintenance'});
+  await seed('users/v2worker',{role:'maintenance'});await seed('users/wrongWorker',{role:'maintenance'});await seed('users/v2student',{role:'student'});
   await seed('campusReports/v2_security',report);await seed('campusReports/v2_security/history/h',{note:'Private progress'});await seed('staffDirectory/v2worker',{name:'Worker'});
   await assertSucceeds(getDoc(doc(user('v2worker','maintenance').firestore(),'campusReports/v2_security')));
   await assertSucceeds(getDocs(query(collection(user('v2worker','maintenance').firestore(),'campusReports'),where('assignedTo','==','v2worker'))));
@@ -23,7 +23,7 @@ secured('maintenance reports/history require assignment; staff directory remains
   await assertFails(setDoc(doc(user('v2student','student').firestore(),'staffDirectory/v2student'),{role:'admin'}));
 });
 secured('meal eligibility and check-in records cannot be forged or read across operators',async()=>{
-  await seed('users/v2operator',{role:'mess'});
+  await seed('users/v2operator',{role:'mess'});await seed('users/wrongOperator',{role:'mess'});
   await seed('mealEntitlements/v2_mess_s',{userId:'v2student',messId:'v2mess',active:true});await seed('mealCheckIns/v2_period_s',{userId:'v2student',operatorId:'v2operator',periodId:'v2period'});
   await assertSucceeds(getDoc(doc(user('v2student','student').firestore(),'mealEntitlements/v2_mess_s')));
   await assertFails(updateDoc(doc(user('v2student','student').firestore(),'mealEntitlements/v2_mess_s'),{active:true}));
@@ -37,6 +37,9 @@ secured('private JPEG uploads enforce owner, MIME, size, immutability and assign
   for(const [uid,role] of [['v2photo','student'],['v2other','student'],['v2photoWorker','maintenance']])await seed(`users/${uid}`,{role});
   const requestId=`photo_${Date.now()}`,reportId=`v2photo_${requestId}`,path=`reports/v2photo/${requestId}/photo.jpg`,bytes=new Uint8Array([255,216,255,217]);
   await assertSucceeds(uploadBytes(ref(student.storage(),path),bytes,{contentType:'image/jpeg'}));
+  const unverified=env.authenticatedContext('v2photo',{email:'v2photo@kpriet.ac.in',role:'student',email_verified:false});
+  await assertFails(getBytes(ref(unverified.storage(),path)));
+  await assertFails(uploadBytes(ref(unverified.storage(),'reports/v2photo/unverified/photo.jpg'),bytes,{contentType:'image/jpeg'}));
   await assertFails(uploadBytes(ref(student.storage(),path),bytes,{contentType:'image/jpeg'}));
   await assertFails(uploadBytes(ref(other.storage(),'reports/v2photo/other_request/photo.jpg'),bytes,{contentType:'image/jpeg'}));
   await assertFails(uploadBytes(ref(student.storage(),'reports/v2photo/invalid/photo.jpg'),bytes,{contentType:'text/plain'}));

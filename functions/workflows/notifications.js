@@ -21,7 +21,9 @@ exports.announcementInbox = onDocumentCreated('announcements/{announcementId}', 
 });
 exports.sendInboxPush = onDocumentCreated('notifications/{notificationId}', async event=>{
   const n=event.data.data();const profile=await db.doc(`users/${n.userId}`).get();
-  if(!profile.exists||profile.data().notificationsEnabled===false)return;
+  if(!profile.exists||profile.data().notificationsEnabled===false||profile.data().accessDisabled===true||profile.data().membershipGranted!==true)return;
+  const recipient=await getAuth().getUser(n.userId).catch(()=>null);
+  if(!recipient||!require('../admission-policy').hasCampusAccess(recipient,{email:recipient.email,email_verified:recipient.emailVerified},profile.data()))return;
   const devices=await db.collection(`users/${n.userId}/devices`).limit(10).get();if(devices.empty)return;
   const response=await getMessaging().sendEachForMulticast({tokens:devices.docs.map(d=>d.data().token),data:{userId:n.userId,title:n.title.slice(0,200),body:n.body.slice(0,1000),notificationId:event.params.notificationId,destination:n.destination||'',entityId:n.entityId||''}});
   await Promise.all(response.responses.map((result,index)=>['messaging/registration-token-not-registered','messaging/invalid-registration-token'].includes(result.error?.code)?devices.docs[index].ref.delete():Promise.resolve()));

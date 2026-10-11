@@ -5,7 +5,7 @@ service firebase.storage {
     // Reuse one protected profile lookup, leaving the second cross-service
     // lookup available for report ownership within Storage's two-call limit.
     function profile() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
-    function signedIn() { return request.auth != null && profile().get('accessDisabled',false) == false; }
+    function signedIn() { return request.auth != null && request.auth.token.get('email_verified',false) == true && profile().get('accessDisabled',false) == false && profile().get('membershipGranted',false) == true && profile().get('membershipEmail','') == request.auth.token.get('email','').lower(); }
     function role(value) { return signedIn() && request.auth.token.get('role', 'student') == value && profile().role == value; }
     function image() { return request.resource.size > 0 && request.resource.size <= 3 * 1024 * 1024 && request.resource.contentType == 'image/jpeg'; }
     function report(reportId) { return firestore.get(/databases/(default)/documents/campusReports/$(reportId)).data; }

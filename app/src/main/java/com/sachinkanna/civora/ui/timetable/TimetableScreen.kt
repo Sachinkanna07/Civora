@@ -16,8 +16,8 @@ import java.time.LocalDate
 @Composable
 fun TimetableScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: () -> Unit) {
     var mode by rememberSaveable {mutableStateOf("Today")}
-    var now by remember {mutableStateOf(java.time.LocalDateTime.now())}
-    LaunchedEffect(Unit) {while(true) {kotlinx.coroutines.delay(30000);now=java.time.LocalDateTime.now()}}
+    var now by remember {mutableStateOf(com.sachinkanna.civora.data.model.CampusPolicy.now())}
+    LaunchedEffect(Unit) {while(true) {kotlinx.coroutines.delay(30000);now=com.sachinkanna.civora.data.model.CampusPolicy.now()}}
     var day by rememberSaveable {mutableIntStateOf(now.dayOfWeek.value)}
     val all=state.values<TimetableEntry>(CampusFeed.TIMETABLE)
     val department=all.firstOrNull()?.department.orEmpty()

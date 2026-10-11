@@ -16,4 +16,6 @@ data class UserProfile(
     val boardingStop: String = "",
     val themePreference: String = "SYSTEM",
     val kitchenAlerts: Boolean = true,
+    val emailVerified: Boolean = false,
+    val campusAdmitted: Boolean = false,
 )

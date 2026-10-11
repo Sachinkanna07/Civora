@@ -89,13 +89,18 @@ fun CivoraNavGraph(
                 else RoleDashboard(profile, logout, onRefreshProfile = { authViewModel.refreshProfile() })
             }
         }
+        composable("admission") {
+            state.profile?.let {AdmissionScreen(it,state,authViewModel,logout)}
+        }
     }
-    LaunchedEffect(state.profile?.uid, state.loading) {
+    LaunchedEffect(state.profile?.uid, state.profile?.campusAdmitted, state.loading) {
         if (
             !state.loading &&
                 state.profile != null &&
-                navController.currentDestination?.route != "workspace"
+                navController.currentDestination?.route != (if(state.profile?.campusAdmitted==true)"workspace"else"admission")
         )
-            navController.navigate("workspace") { popUpTo(0) { inclusive = true } }
+            navController.navigate(if(state.profile?.campusAdmitted==true)"workspace"else"admission") { popUpTo(0) { inclusive = true } }
+        if(!state.loading&&state.profile==null&&navController.currentDestination?.route=="admission")
+            navController.navigate(Screen.AuthWelcome.route) {popUpTo(0){inclusive=true}}
     }
 }

@@ -127,9 +127,9 @@ fun SelectField(label: String,value: String,choices: List<Choice>,onSelect: (Str
 fun DateTimeField(label: String,value: Long,onChange: (Long)->Unit,modifier: Modifier=Modifier) {
     val context=androidx.compose.ui.platform.LocalContext.current
     OutlinedButton(onClick={
-        val initial=if(value>0)java.time.Instant.ofEpochMilli(value).atZone(java.time.ZoneId.systemDefault())else java.time.ZonedDateTime.now()
+        val initial=if(value>0)java.time.Instant.ofEpochMilli(value).atZone(com.sachinkanna.civora.data.model.CampusPolicy.zone)else java.time.ZonedDateTime.now(com.sachinkanna.civora.data.model.CampusPolicy.zone)
         android.app.DatePickerDialog(context,{_,year,month,day->
-            android.app.TimePickerDialog(context,{_,hour,minute->onChange(java.time.LocalDate.of(year,month+1,day).atTime(hour,minute).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())},initial.hour,initial.minute,false).show()
+            android.app.TimePickerDialog(context,{_,hour,minute->onChange(java.time.LocalDate.of(year,month+1,day).atTime(hour,minute).atZone(com.sachinkanna.civora.data.model.CampusPolicy.zone).toInstant().toEpochMilli())},initial.hour,initial.minute,false).show()
         },initial.year,initial.monthValue-1,initial.dayOfMonth).show()
     },modifier=modifier.fillMaxWidth().heightIn(min=60.dp),shape=RoundedCornerShape(12.dp)) { Icon(Icons.Outlined.CalendarMonth,null);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)) { Text(label,style=MaterialTheme.typography.labelMedium);Text(if(value>0)dateTime(value)else "Choose date and time",style=MaterialTheme.typography.bodyMedium) } }
 }
@@ -138,7 +138,7 @@ fun DateTimeField(label: String,value: Long,onChange: (Long)->Unit,modifier: Mod
 fun ConfirmationDialog(title: String,body: String,confirm: String,onConfirm: ()->Unit,onDismiss: ()->Unit) {
     AlertDialog(onDismissRequest=onDismiss,title={Text(title)},text={Text(body)},confirmButton={TextButton(onClick=onConfirm) { Text(confirm) }},dismissButton={TextButton(onClick=onDismiss) { Text("Keep editing") }})
 }
-fun dateTime(time: Long): String=if(time<=0)"Time unavailable" else java.time.Instant.ofEpochMilli(time).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("d MMM · h:mm a"))
+fun dateTime(time: Long): String=if(time<=0)"Time unavailable" else java.time.Instant.ofEpochMilli(time).atZone(com.sachinkanna.civora.data.model.CampusPolicy.zone).format(java.time.format.DateTimeFormatter.ofPattern("d MMM · h:mm a"))
 fun elapsedLabel(time: Long,now: Long=System.currentTimeMillis()): String {
     if(time<=0)return "Time unavailable"
     val minutes=((now-time).coerceAtLeast(0)/60000)

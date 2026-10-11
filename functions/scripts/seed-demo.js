@@ -15,12 +15,12 @@ async function createOnly(path,data){const ref=db.doc(path);await db.runTransact
 (async()=>{
   for(const role of ['student','faculty','admin','vendor','driver','mess','maintenance']) {
     const uid=`demo_${role}`,email=`${role}@demo.example.com`;
-    let user;try{user=await auth.getUser(uid);}catch(e){if(e.code!=='auth/user-not-found')throw e;user=await auth.createUser({uid,email,password:'DemoCampus123!',displayName:`Demo ${role}`});}
+    let user;try{user=await auth.getUser(uid);}catch(e){if(e.code!=='auth/user-not-found')throw e;user=await auth.createUser({uid,email,password:'DemoCampus123!',emailVerified:true,displayName:`Demo ${role}`});}
     if(user.email!==email)throw Error(`Existing emulator account ${uid} does not match the fixture`);
     await auth.setCustomUserClaims(uid,{...user.customClaims,role});
     // Do not add demo metadata to profiles: client rules use an exact field schema.
     const ref=db.doc(`users/${uid}`);
-    if(!(await ref.get()).exists)await ref.create({uid,email,name:`Demo ${role}`,role,department:'DEMO CSE',year:'2',section:'A',routeId:'demo_route',boardingStop:'DEMO Library',profileImage:'',notificationsEnabled:false,createdAt:now});
+    if(!(await ref.get()).exists)await ref.create({uid,email,name:`Demo ${role}`,role,department:'DEMO CSE',year:'2',section:'A',routeId:'demo_route',boardingStop:'DEMO Library',profileImage:'',notificationsEnabled:false,admissionException:true,admissionEmail:email,membershipGranted:true,membershipEmail:email,createdAt:now});
     if(role!=='student')await createOnly(`staffDirectory/${uid}`,{uid,name:`Demo ${role}`,role,department:'DEMO CSE',team:'Demo campus operations',active:true});
   }
   await createOnly('clubs/demo_club',{name:'DEMO Robotics Club',description:'Fictional campus club for local demonstration.',category:'Technology',imageUrl:''});

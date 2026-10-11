@@ -42,7 +42,7 @@ fun ContentEditor(profile: UserProfile,state: WorkspaceState,vm: CampusWorkspace
             if(event) {
                 item {val locations=state.values<CampusLocation>(CampusFeed.LOCATIONS);SelectField("Venue",venue,locations.map {Choice(it.name,it.name)},{venue=it})}
                 item {OutlinedTextField(capacity,{capacity=it.filter(Char::isDigit).take(6)},label={Text("Capacity (0 means no limit)")},modifier=Modifier.fillMaxWidth())}
-                item {DateTimeField("Starts",start,{start=it});DateTimeField("Ends",end,{end=it});Text("Times use ${java.time.ZoneId.systemDefault().id}.",style=MaterialTheme.typography.bodySmall)}
+                item {DateTimeField("Starts",start,{start=it});DateTimeField("Ends",end,{end=it});Text("Times use ${com.sachinkanna.civora.data.model.CampusPolicy.zone.id}.",style=MaterialTheme.typography.bodySmall)}
                 item {DateTimeField("Registration deadline (optional)",deadline,{deadline=it});if(deadline>0)TextButton(onClick={deadline=0}) {Text("Close registration at event start")}}
                 item {SelectField("Organizing club",club,state.values<Club>(CampusFeed.CLUBS).map {Choice(it.id,it.name)},{club=it},allowNone=true)}
             } else item {DateTimeField("Expiry (optional)",expiry,{expiry=it});if(expiry>0)TextButton(onClick={expiry=0}) {Text("Remove expiry")}}
@@ -69,7 +69,7 @@ fun parseDate(text: String): Long? =
                 text,
                 java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"),
             )
-            .atZone(java.time.ZoneId.systemDefault())
+            .atZone(com.sachinkanna.civora.data.model.CampusPolicy.zone)
             .toInstant()
             .toEpochMilli()
     } catch (e: Exception) {
@@ -78,5 +78,5 @@ fun parseDate(text: String): Long? =
 
 fun editDate(time: Long): String =
     java.time.Instant.ofEpochMilli(time)
-        .atZone(java.time.ZoneId.systemDefault())
+        .atZone(com.sachinkanna.civora.data.model.CampusPolicy.zone)
         .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))

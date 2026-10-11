@@ -112,7 +112,7 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
                     OutlinedButton(onClick={android.app.TimePickerDialog(context,{_,h,m->values=values+(field to (h*60+m).toString())},minute/60,minute%60,false).show()},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("${if(field=="startMinute") "Starts" else "Ends"}: ${clockTime(minute)}")}
                 } else if(field=="date") {
                     val context=androidx.compose.ui.platform.LocalContext.current
-                    val date=runCatching {java.time.LocalDate.parse(values[field])}.getOrDefault(java.time.LocalDate.now())
+                    val date=runCatching {java.time.LocalDate.parse(values[field])}.getOrDefault(java.time.LocalDate.now(com.sachinkanna.civora.data.model.CampusPolicy.zone))
                     OutlinedButton(onClick={android.app.DatePickerDialog(context,{_,y,m,d->values=values+(field to java.time.LocalDate.of(y,m+1,d).toString())},date.year,date.monthValue-1,date.dayOfMonth).show()},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("Date: ${values[field]?:"Choose date"}")}
                 } else if(field=="stops") StopEditor(values[field].orEmpty()) {values=values+(field to it)}
                 else

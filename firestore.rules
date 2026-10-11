@@ -5,7 +5,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function accessEnabled() { return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('accessDisabled',false) == false; }
-    function authenticated() { return request.auth != null && accessEnabled() && !exists(/databases/$(database)/documents/accountDeletions/$(request.auth.uid)); }
+    function identity() { return request.auth != null && accessEnabled() && !exists(/databases/$(database)/documents/accountDeletions/$(request.auth.uid)); }
+    function admitted() { return request.auth.token.get('email_verified',false) == true && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('membershipGranted',false) == true && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('membershipEmail','') == request.auth.token.get('email','').lower(); }
+    function authenticated() { return identity() && admitted(); }
     function owner(uid) { return authenticated() && request.auth.uid == uid; }
     function role(value) { return authenticated() && request.auth.token.get('role', 'student') == value && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == value; }
     function admin() { return role('admin'); }
@@ -13,7 +15,7 @@ service cloud.firestore {
     function validUrl(value) { return short(value,2000) && (value == '' || value.matches('https://.*')); }
     function validUser(d) {
       return d.keys().hasAll(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt'])
-        && d.keys().hasOnly(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt','boardingStop','themePreference','kitchenAlerts','accessDisabled'])
+        && d.keys().hasOnly(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt','boardingStop','themePreference','kitchenAlerts','accessDisabled','admissionException','admissionEmail','membershipGranted','membershipEmail','membershipGrantedAt'])
         && short(d.uid,128) && short(d.name,100) && d.name.size() >= 2
         && short(d.email,254) && d.email.matches('[^@ ]+@[^@ ]+\\.[^@ ]+')
         && d.role in ['student','faculty','admin','vendor','driver','maintenance','mess']
@@ -22,12 +24,17 @@ service cloud.firestore {
         && d.notificationsEnabled is bool && d.createdAt is timestamp
         && short(d.get('boardingStop',''),100)
         && d.get('themePreference','SYSTEM') in ['SYSTEM','LIGHT','DARK']
-        && d.get('kitchenAlerts',true) is bool && d.get('accessDisabled',false) is bool;
+        && d.get('kitchenAlerts',true) is bool && d.get('accessDisabled',false) is bool
+        && d.get('admissionException',false) is bool && short(d.get('admissionEmail',''),254)
+        && d.get('membershipGranted',false) is bool && short(d.get('membershipEmail',''),254)
+        && d.get('membershipGrantedAt',request.time) is timestamp;
     }
     match /users/{uid} {
-      allow read: if owner(uid) || admin();
-      allow create: if owner(uid) && validUser(request.resource.data)
-        && request.resource.data.uid == uid && request.resource.data.role == 'student' && !request.resource.data.keys().hasAny(['accessDisabled'])
+      // Onboarding permits only own profile access, before campus admission.
+      allow get: if (identity() && request.auth.uid == uid) || admin();
+      allow list: if admin();
+      allow create: if identity() && request.auth.uid == uid && validUser(request.resource.data)
+        && request.resource.data.uid == uid && request.resource.data.role == 'student' && !request.resource.data.keys().hasAny(['accessDisabled','admissionException','admissionEmail','membershipGranted','membershipEmail','membershipGrantedAt'])
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.createdAt == request.time;
       allow update: if owner(uid) && validUser(request.resource.data)

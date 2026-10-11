@@ -13,13 +13,13 @@ class AuthRepository(
 ) {
     suspend fun register(name: String, email: String, password: String): UserProfile {
         com.sachinkanna.civora.data.model.validateStudentRegistration(name, email, password)
-        val result = auth.createUserWithEmailAndPassword(email.trim(), password).await()
+        val result = auth.createUserWithEmailAndPassword(com.sachinkanna.civora.data.model.CampusPolicy.canonicalEmail(email), password).await()
         val uid = result.user?.uid ?: error("Firebase did not return a user id")
         val profile =
             UserProfile(
                 uid = uid,
                 name = name.trim(),
-                email = email.trim(),
+                email = result.user?.email ?: email.trim(),
                 role = UserRole.STUDENT,
             )
         try {
@@ -43,13 +43,24 @@ class AuthRepository(
     suspend fun fetchCurrentProfile(): UserProfile? = auth.currentUser?.let { fetchProfile(it.uid) }
 
     suspend fun fetchProfile(uid: String): UserProfile {
-        val data =
+        var data =
             firestore.collection("users").document(uid).get().await().data
                 ?: error("Civora profile is missing")
-        val claims = auth.currentUser?.getIdToken(false)?.await()?.claims.orEmpty()
+        var claims = auth.currentUser?.getIdToken(false)?.await()?.claims.orEmpty()
+        if(data["role"]!=(claims["role"] as? String ?: "student"))claims=auth.currentUser?.getIdToken(true)?.await()?.claims.orEmpty()
+        val verified=claims["email_verified"]==true
+        val currentEmail=claims["email"] as? String ?: auth.currentUser?.email.orEmpty()
+        if(verified&&(data["membershipGranted"]!=true||data["membershipEmail"]!=com.sachinkanna.civora.data.model.CampusPolicy.canonicalEmail(currentEmail))) {
+            try {
+                com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("activateCampusAccess").call(emptyMap<String,Any>()).await()
+                data=firestore.collection("users").document(uid).get().await().data ?: error("Civora profile is missing")
+            } catch(error: com.google.firebase.functions.FirebaseFunctionsException) {
+                if(error.code!=com.google.firebase.functions.FirebaseFunctionsException.Code.PERMISSION_DENIED)throw error
+            }
+        }
         val role = UserRole.fromKey(claims["role"] as? String) ?: UserRole.STUDENT
         val name = data["name"] as? String ?: error("Civora profile is incomplete")
-        val email = data["email"] as? String ?: error("Civora profile is incomplete")
+        val email = currentEmail.ifBlank {data["email"] as? String ?: error("Civora profile is incomplete")}
         return UserProfile(
             uid,
             name,
@@ -65,18 +76,37 @@ class AuthRepository(
             data["boardingStop"] as? String ?: "",
             data["themePreference"] as? String ?: "SYSTEM",
             data["kitchenAlerts"] as? Boolean ?: true,
+            verified,
+            verified&&data["membershipGranted"]==true&&data["membershipEmail"]==com.sachinkanna.civora.data.model.CampusPolicy.canonicalEmail(currentEmail)&&com.sachinkanna.civora.data.model.CampusPolicy.eligible(currentEmail,verified,data["admissionException"]==true,data["admissionEmail"] as? String ?: ""),
         )
+    }
+
+    suspend fun sendVerificationEmail() {
+        (auth.currentUser ?: error("Sign in again")).sendEmailVerification().await()
+    }
+    suspend fun refreshVerifiedProfile(): UserProfile? {
+        val user=auth.currentUser ?: return null
+        user.reload().await()
+        auth.currentUser?.getIdToken(true)?.await()
+        return fetchCurrentProfile()
     }
 
     fun logout() = auth.signOut()
 
     suspend fun unregisterDevice() {
-        val uid=auth.currentUser?.uid ?: return
         if(com.sachinkanna.civora.FirebaseEnvironment.isDemo)return
-        val token=com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
-        val deviceId=java.security.MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString("") { "%02x".format(it) }
-        firestore.collection("users").document(uid).collection("devices").document(deviceId).delete().await()
-        com.google.firebase.messaging.FirebaseMessaging.getInstance().deleteToken().await()
+        val messaging=com.google.firebase.messaging.FirebaseMessaging.getInstance()
+        messaging.isAutoInitEnabled=false
+        val uid=auth.currentUser?.uid ?: run {messaging.deleteToken().await();return}
+        val context=com.google.firebase.FirebaseApp.getInstance().applicationContext
+        val preferences=context.getSharedPreferences("civora_push_devices",android.content.Context.MODE_PRIVATE)
+        val deviceId=preferences.getString(uid,"").orEmpty()
+        try {
+            if(deviceId.isNotBlank())firestore.collection("users").document(uid).collection("devices").document(deviceId).delete().await()
+        } finally {
+            preferences.edit().remove(uid).apply()
+            messaging.deleteToken().await()
+        }
     }
 
     suspend fun deleteAccount(password: String) {
@@ -87,6 +117,12 @@ class AuthRepository(
             .getHttpsCallable("requestAccountDeletion").call(mapOf("confirm" to true)).await()
         val context = com.google.firebase.FirebaseApp.getInstance().applicationContext
         DeviceCartPersistence(context).clear(user.uid)
+        context.getSharedPreferences("civora_push_devices",android.content.Context.MODE_PRIVATE).edit().remove(user.uid).apply()
+        if(!com.sachinkanna.civora.FirebaseEnvironment.isDemo)runCatching {
+            val messaging=com.google.firebase.messaging.FirebaseMessaging.getInstance()
+            messaging.isAutoInitEnabled=false
+            kotlinx.coroutines.withTimeout(3000){messaging.deleteToken().await()}
+        }
         auth.signOut()
     }
 

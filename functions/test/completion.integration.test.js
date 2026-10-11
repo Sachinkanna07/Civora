@@ -10,9 +10,9 @@ test('production hardening: bounded rush concurrency, stale claims, abuse limits
   const projectId=process.env.GCLOUD_PROJECT,app=initializeApp({projectId,storageBucket:`${projectId}.appspot.com`},'completion-tests');
   const db=getFirestore(app),auth=getAuth(app),suffix=`completion_${Date.now()}`;
   async function actor(role,label=role){
-    const uid=`${label}_${suffix}`,email=`${uid}@example.com`,password='EmulatorOnly123!';
-    await auth.createUser({uid,email,password});await auth.setCustomUserClaims(uid,{role});
-    await db.doc(`users/${uid}`).set({uid,email,name:label,role,department:'CSE',year:'2',section:'A',routeId:'',profileImage:'',notificationsEnabled:false,createdAt:Timestamp.now()});
+    const uid=`${label}_${suffix}`,email=`${uid}@kpriet.ac.in`,password='EmulatorOnly123!';
+    await auth.createUser({uid,email,password,emailVerified:true});await auth.setCustomUserClaims(uid,{role});
+    await db.doc(`users/${uid}`).set({uid,email,name:label,role,department:'CSE',year:'2',section:'A',routeId:'',profileImage:'',notificationsEnabled:false,membershipGranted:true,membershipEmail:email.toLowerCase(),createdAt:Timestamp.now()});
     const response=await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-key`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true})});
     const body=await response.json();assert.ok(body.idToken);return {uid,token:body.idToken};
   }

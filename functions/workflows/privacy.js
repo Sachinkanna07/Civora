@@ -4,6 +4,7 @@ const {getStorage} = require('firebase-admin/storage');
 
 exports.requestAccountDeletion = onCall('requestAccountDeletion',async req => {
   const {uid,role} = requireAuth(req);
+  if(!require('../deletion-policy').deletionEnabled())throw new HttpsError('failed-precondition','Production deletion is awaiting reviewed retention approval. Use the configured Civora support channel.');
   if (req.data.confirm !== true) throw new HttpsError('invalid-argument','Confirm account deletion.');
   if (!Number.isFinite(req.auth.token.auth_time) || Date.now()/1000-req.auth.token.auth_time > 300)
     throw new HttpsError('unauthenticated','Confirm your password before deleting your account.');
@@ -17,7 +18,7 @@ exports.requestAccountDeletion = onCall('requestAccountDeletion',async req => {
     tx.set(db.doc(`users/${uid}`),{accessDisabled:true},{merge:true});
   });
   return {accepted:true};
-});
+},{requiresAdmission:false});
 
 async function removeOwned(collection,field,uid,remove) {
   for (;;) {
@@ -51,8 +52,13 @@ async function deleteStudentData(uid) {
   await getAuth().deleteUser(uid).catch(e=>{if(e.code!=='auth/user-not-found')throw e;});
 }
 exports.completeAccountDeletion = onDocumentCreated({document:'accountDeletions/{uid}',retry:true,timeoutSeconds:540,maxInstances:2},async event=>{
+  if(!event.data)return;
   const ref=event.data.ref;
   if((await ref.get()).data()?.status==='COMPLETED')return;
+  if(!require('../deletion-policy').deletionEnabled()) {
+    await ref.set({status:'APPROVAL_REQUIRED',updatedAt:serverTime()},{merge:true});
+    return;
+  }
   await ref.set({status:'PROCESSING',updatedAt:serverTime()},{merge:true});
   try {
     await deleteStudentData(event.params.uid);

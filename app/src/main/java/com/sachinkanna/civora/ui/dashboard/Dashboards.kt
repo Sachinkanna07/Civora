@@ -35,6 +35,13 @@ fun RoleDashboard(
     var metrics by remember {mutableStateOf<Map<String,Any?>>(emptyMap())}
     LaunchedEffect(state.lastResult) {if(state.lastAction=="getOperationsSummary")metrics=state.lastResult}
     var page by rememberSaveable { mutableStateOf<String?>(null) }
+    val destination by com.sachinkanna.civora.AppNavigation.destination.collectAsStateWithLifecycle()
+    LaunchedEffect(destination) {
+        destination?.let {
+            if(it.startsWith("Report:") && profile.role in listOf(UserRole.ADMIN,UserRole.MAINTENANCE))page=it
+            com.sachinkanna.civora.AppNavigation.destination.value=null
+        }
+    }
     val logout: () -> Unit = { vm.disconnect(); onLogout() }
     val back: () -> Unit = { page = null }
     BackHandler(page != null) { back() }
@@ -44,11 +51,12 @@ fun RoleDashboard(
             when {
                 page == "Settings" -> com.sachinkanna.civora.ui.profile.ProfileScreen(profile,state,vm,onRefreshProfile,logout,{page=it},back)
                 profile.role == UserRole.MESS -> MessScreen(profile,state,vm,logout)
-                profile.role == UserRole.MAINTENANCE -> MaintenanceScreen(profile,state,vm,logout)
+                profile.role == UserRole.MAINTENANCE -> MaintenanceScreen(profile,state,vm,logout,page?.substringAfter(':')?.takeIf {page?.startsWith("Report:")==true},back)
                 profile.role == UserRole.VENDOR -> FoodScreen(state, vm, logout, vendor = true)
                 profile.role == UserRole.DRIVER -> DriverScreen(state, vm, logout)
                 page == "Mess setup" -> MessSetupScreen(state,vm,back)
-                page == "Reports" -> ReportsScreen(state, vm, back, admin = true)
+                page == "Admission" -> AdmissionsScreen(state,vm,back)
+                page == "Reports" || page?.startsWith("Report:")==true -> ReportsScreen(state, vm, back, admin = true, reportId=page?.substringAfter(':')?.takeIf {page?.startsWith("Report:")==true})
                 page == "Publish" -> ContentEditor(profile, state, vm, back)
                 page == "Attendance" -> AttendanceScreen(state, vm, back)
                 page == "Invite" -> InvitationsScreen(state, vm, back)
@@ -76,13 +84,14 @@ fun RoleDashboard(
                                 TextButton(onClick={vm.action("getOperationsSummary",emptyMap(),"Operations summary refreshed")},enabled=!state.busy) {Text("Refresh operations summary")}
                             }
                             feedState(CampusFeed.REPORTS, state, vm, "No pending campus reports.")
-                            items(listOf("Reports", "Invite", "Campus data", "Transport", "Mess setup")) { action
+                            items(listOf("Reports", "Invite", "Admission", "Campus data", "Transport", "Mess setup")) { action
                                 ->
                                 CampusCard(
                                     action,
                                     when (action) {
                                         "Reports" -> "Assign issues and record resolutions"
                                         "Invite" -> "Provision campus staff and operators"
+                                        "Admission" -> "Review institution-approved email exceptions"
                                         "Mess setup" -> "Manage halls, meal windows and entitlements"
                                         "Campus data" ->
                                             "Manage schedules, venues, menus and bus assignments"
