@@ -1,7 +1,6 @@
 package com.sachinkanna.civora.ui.driver
 
 import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -12,7 +11,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sachinkanna.civora.data.datasource.TripTrackingService
 import com.sachinkanna.civora.data.model.*
@@ -23,9 +21,15 @@ import com.sachinkanna.civora.viewmodel.*
 @Composable
 fun DriverScreen(state: WorkspaceState,vm: CampusWorkspaceViewModel,logout: ()->Unit) {
     val context=LocalContext.current
-    var permission by remember {mutableStateOf(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED||ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED)}
+    var permission by remember {mutableStateOf(TripTrackingService.canShareLocation(context))}
     var permissionMessage by remember {mutableStateOf<String?>(null)}
-    val launcher=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {result->permission=result[Manifest.permission.ACCESS_FINE_LOCATION]==true||result[Manifest.permission.ACCESS_COARSE_LOCATION]==true;if(!permission)permissionMessage="Location access was declined. A trip cannot share GPS until you allow it."}
+    val launcher=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {permission=TripTrackingService.canShareLocation(context);permissionMessage=if(permission)null else "Allow location and trip notifications so sharing remains visible and you can stop it."}
+    val lifecycle=androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer=androidx.lifecycle.LifecycleEventObserver {_,event->if(event==androidx.lifecycle.Lifecycle.Event.ON_RESUME){permission=TripTrackingService.canShareLocation(context);if(permission)permissionMessage=null}}
+        lifecycle.addObserver(observer)
+        onDispose {lifecycle.removeObserver(observer)}
+    }
     val locationState by TripTrackingService.status.collectAsStateWithLifecycle()
     val sharing by TripTrackingService.activeTrip.collectAsStateWithLifecycle()
     val bus=state.values<Bus>(CampusFeed.BUSES).firstOrNull()
@@ -39,7 +43,13 @@ fun DriverScreen(state: WorkspaceState,vm: CampusWorkspaceViewModel,logout: ()->
         feedState(CampusFeed.BUSES,state,vm,"Ask campus operations to assign your bus and route.")
         item {CampusCard(bus?.name?:"No vehicle assigned",route?.name?:"No route assigned",if(trip!=null)"Trip active"else"Trip stopped")}
         item {SectionTitle("Location sharing",locationState);Text("Sharing continues during an active trip when you switch apps or lock the phone. The notification always includes Stop sharing.",style=MaterialTheme.typography.bodyMedium)}
-        if(!permission)item {Button(onClick={launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.POST_NOTIFICATIONS))},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("Allow trip location")}}
+        if(!permission)item {
+            Button(onClick={
+                val requested=listOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION)+if(android.os.Build.VERSION.SDK_INT>=33)listOf(Manifest.permission.POST_NOTIFICATIONS)else emptyList()
+                launcher.launch(requested.toTypedArray())
+            },modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("Allow trip permissions")}
+            TextButton(onClick={context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,context.packageName))}) {Text("Open Android notification settings")}
+        }
         permissionMessage?.let {item {Text(it,color=MaterialTheme.colorScheme.error)}}
         bus?.let {b->item {
             if(trip==null)Button(onClick={vm.action("manageTrip",mapOf("busId" to b.id,"active" to true),"Trip started") {startSharing(b.id)}},enabled=permission&&!state.busy,modifier=Modifier.fillMaxWidth().heightIn(min=72.dp)) {Text("Start trip and share GPS")}
