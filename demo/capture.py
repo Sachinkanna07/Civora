@@ -41,7 +41,10 @@ elif command == 'tap':
     tap(sys.argv[2])
 elif command == 'input':
     tap(sys.argv[2])
+    time.sleep(0.5)  # Let the focused Compose field/IME settle before typing.
+    adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A: replace, never append.
     adb('shell', 'input', 'text', sys.argv[3].replace(' ', '%s'))
+    time.sleep(0.5)
 elif command in ('capture', 'capture-v2', 'capture-final'):
     time.sleep(1)
     visible = nodes()

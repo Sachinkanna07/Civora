@@ -77,7 +77,7 @@ fun StudentShell(
                 }
         }
     ) { padding ->
-        Box(Modifier.padding(padding)) {
+        Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
             Box(Modifier.fillMaxSize()) {
                 when {
                     page == "Food" || page?.startsWith("Order:") == true ->

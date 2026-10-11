@@ -79,7 +79,7 @@ fun CivoraNavGraph(
             )
         }
         composable("workspace") {
-            state.profile?.let { profile ->
+            state.profile?.takeIf { it.campusAdmitted }?.let { profile ->
                 if (profile.role == UserRole.STUDENT)
                     StudentShell(
                         profile,
@@ -100,7 +100,7 @@ fun CivoraNavGraph(
                 navController.currentDestination?.route != (if(state.profile?.campusAdmitted==true)"workspace"else"admission")
         )
             navController.navigate(if(state.profile?.campusAdmitted==true)"workspace"else"admission") { popUpTo(0) { inclusive = true } }
-        if(!state.loading&&state.profile==null&&navController.currentDestination?.route=="admission")
+        if(!state.loading&&state.profile==null&&navController.currentDestination?.route in setOf("admission","workspace"))
             navController.navigate(Screen.AuthWelcome.route) {popUpTo(0){inclusive=true}}
     }
 }
