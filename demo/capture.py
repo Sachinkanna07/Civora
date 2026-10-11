@@ -9,10 +9,11 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ADB = Path(os.environ['LOCALAPPDATA']) / 'Android/Sdk/platform-tools/adb.exe'
+SERIAL = os.environ.get('CIVORA_ADB_SERIAL', 'emulator-5554')
 ROOT = Path(__file__).resolve().parent
 
 def adb(*args):
-    return subprocess.check_output([str(ADB), *args], text=True, encoding='utf-8', errors='replace').strip()
+    return subprocess.check_output([str(ADB), '-s', SERIAL, *args], text=True, encoding='utf-8', errors='replace').strip()
 
 def nodes():
     result = adb('shell', 'uiautomator', 'dump', '/sdcard/civora-ui.xml')

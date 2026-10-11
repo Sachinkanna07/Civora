@@ -29,7 +29,7 @@ fun AdmissionsScreen(state: WorkspaceState,vm: CampusWorkspaceViewModel,back: ()
         if(candidate.isNotEmpty())item {
             CampusCard(candidate["name"] as? String ?: "Registered account","${candidate["email"]}\nRole: ${candidate["role"]}\nEmail verified: ${candidate["emailVerified"]}\nEmail exception: ${candidate["exception"]}\nCampus admission: ${candidate["admitted"]}\nSuspended: ${candidate["disabled"]}")
             OutlinedTextField(reference,{reference=it.take(300)},label={Text("Institutional approval reference")},modifier=Modifier.fillMaxWidth())
-            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            FlowRow(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(onClick={approve=true},enabled=!state.busy&&reference.isNotBlank()&&candidate["disabled"]!=true){Text("Approve exception")}
                 OutlinedButton(onClick={approve=false},enabled=!state.busy&&reference.isNotBlank()){Text("Revoke exception")}
             }
