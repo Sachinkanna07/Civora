@@ -19,7 +19,8 @@ function onCall(name, handler) {
     const revokedAfter = Date.parse(user.tokensValidAfterTime || '') / 1000;
     if (Number.isFinite(revokedAfter) && req.auth.token.auth_time < revokedAfter)
       throw new HttpsError('unauthenticated','Your session expired. Sign in again.');
-    const deletion = await db.doc(`accountDeletions/${req.auth.uid}`).get();
+    const [deletion,profile] = await Promise.all([db.doc(`accountDeletions/${req.auth.uid}`).get(),db.doc(`users/${req.auth.uid}`).get()]);
+    if (profile.data()?.accessDisabled === true) throw new HttpsError('permission-denied','Your campus access is disabled.');
     if (deletion.exists) throw new HttpsError('failed-precondition','Account deletion is in progress.');
     const window = Math.floor(Date.now()/60000);
     // Server-selected shards avoid serializing a lunch rush on one document.

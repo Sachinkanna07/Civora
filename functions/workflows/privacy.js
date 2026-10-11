@@ -14,6 +14,7 @@ exports.requestAccountDeletion = onCall('requestAccountDeletion',async req => {
     const activeOrders = await tx.get(db.collection('foodOrders').where('userId','==',uid).where('status','in',['PLACED','ACCEPTED','PREPARING','READY']).limit(1));
     if (!activeOrders.empty) throw new HttpsError('failed-precondition','Complete or cancel your active food order before deleting your account.');
     tx.create(db.doc(`accountDeletions/${uid}`),{status:'PENDING',requestedAt:serverTime()});
+    tx.set(db.doc(`users/${uid}`),{accessDisabled:true},{merge:true});
   });
   return {accepted:true};
 });

@@ -2,8 +2,11 @@ rules_version = '2';
 // Authenticated, immutable JPEGs. Report photos never have public download URLs.
 service firebase.storage {
   match /b/{bucket}/o {
-    function signedIn() { return request.auth != null && !firestore.exists(/databases/(default)/documents/accountDeletions/$(request.auth.uid)); }
-    function role(value) { return signedIn() && request.auth.token.get('role', 'student') == value; }
+    // Reuse one protected profile lookup, leaving the second cross-service
+    // lookup available for report ownership within Storage's two-call limit.
+    function profile() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
+    function signedIn() { return request.auth != null && profile().get('accessDisabled',false) == false; }
+    function role(value) { return signedIn() && request.auth.token.get('role', 'student') == value && profile().role == value; }
     function image() { return request.resource.size > 0 && request.resource.size <= 3 * 1024 * 1024 && request.resource.contentType == 'image/jpeg'; }
     function report(reportId) { return firestore.get(/databases/(default)/documents/campusReports/$(reportId)).data; }
     function reportReader(reportId) { return signedIn() && (role('admin') || report(reportId).createdBy == request.auth.uid || (role('maintenance') && report(reportId).assignedTo == request.auth.uid)); }

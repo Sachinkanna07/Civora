@@ -17,6 +17,18 @@ exports.placeFoodOrder = onCall('placeFoodOrder',async req => {
     record(tx, uid, {title: 'Food order placed', body: `Token ${token}`, type: 'FOOD_ORDER', status: 'PLACED', destination: 'FOOD', entityId: orderRef.id});
     record(tx, canteen.data().vendorId, {title:'New kitchen order',body:`Token ${token} · ${items.reduce((n,x)=>n+x.quantity,0)} items`,type:'FOOD_ORDER',status:'PLACED',destination:'FOOD',entityId:orderRef.id});
     return {orderId: orderRef.id, token};
+  }).catch(async error => {
+    if (error.code !== 10 && error.code !== 'ABORTED') throw error;
+    // Concurrent retries can exhaust pessimistic transaction attempts after
+    // another identical request commits. Read the original result without
+    // acquiring write locks; never create a replacement request identity.
+    const committed = await db.runTransaction(async tx => {
+      await require('../shared').requireActiveAccount(tx,uid);
+      const prior = await tx.get(orderRef);
+      return prior.exists ? {orderId:prior.id,token:prior.data().token} : null;
+    },{readOnly:true});
+    if (committed) return committed;
+    throw new HttpsError('aborted','Your order is still processing. Retry with your saved cart.');
   });
 });
 exports.updateFoodOrder = onCall('updateFoodOrder',async req => {

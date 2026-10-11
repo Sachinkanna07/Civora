@@ -7,8 +7,8 @@ exports.invitePrivilegedUser = onCall('invitePrivilegedUser',async req => {
   let user; try { user = await getAuth().getUserByEmail(email); } catch (e) { if (e.code !== 'auth/user-not-found') throw e; user = await getAuth().createUser({email,displayName:name}); }
   const previousRole = user.customClaims?.role;
   if (previousRole === 'admin') throw new HttpsError('permission-denied','Administrator accounts cannot be modified through invitations.');
-  await getAuth().setCustomUserClaims(user.uid, {...user.customClaims,role});
   await db.doc(`users/${user.uid}`).set({uid:user.uid,name,email,role,department,year:'',section:'',routeId:'',profileImage:'',notificationsEnabled:true,createdAt:serverTime()}, {merge:true});
+  await getAuth().setCustomUserClaims(user.uid, {...user.customClaims,role});
   await db.doc(`staffDirectory/${user.uid}`).set({uid:user.uid,name,role,department,team,active:true},{merge:true});
   const resetLink = await getAuth().generatePasswordResetLink(email);
   await db.collection('roleAudit').add({actor:uid,target:user.uid,role,createdAt:serverTime()});

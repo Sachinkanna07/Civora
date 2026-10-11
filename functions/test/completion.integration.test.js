@@ -41,6 +41,16 @@ test('production hardening: bounded rush concurrency, stale claims, abuse limits
   // Server-side current claims override a still-valid privileged ID token.
   await auth.setCustomUserClaims(vendor.uid,{role:'student'});
   assert.equal((await call(vendor,'updateFoodOrder',{orderId:rush[0].result.orderId,status:'ACCEPTED'})).error?.status,'PERMISSION_DENIED');
+  await db.doc(`users/${student.uid}`).update({accessDisabled:true});
+  assert.equal((await call(student,'placeFoodOrder',cart('disabled'))).error?.status,'PERMISSION_DENIED');
+  await db.doc(`users/${student.uid}`).update({accessDisabled:false});
+  const {execFileSync}=require('node:child_process');
+  execFileSync(process.execPath,['scripts/set-account-access.js',student.uid,'disable'],{env:process.env});
+  assert.equal((await auth.getUser(student.uid)).disabled,true);
+  assert.equal((await db.doc(`users/${student.uid}`).get()).data().accessDisabled,true);
+  execFileSync(process.execPath,['scripts/set-account-access.js',student.uid,'enable'],{env:process.env});
+  assert.equal((await auth.getUser(student.uid)).disabled,false);
+  assert.equal((await db.doc(`users/${student.uid}`).get()).data().accessDisabled,false);
   assert.equal((await call(admin,'getOperationsSummary',{})).error,undefined); // warm discovery before seeding a minute-bound quota
   const minute=Math.floor(Date.now()/60000);
   const batch=db.batch();for(let shard=0;shard<16;shard++)batch.set(db.doc(`requestLimits/${admin.uid}_getOperationsSummary_${shard}`),{window:minute,count:10});await batch.commit();

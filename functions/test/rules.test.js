@@ -7,7 +7,7 @@ const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
 let env;
 before(async()=>{if(enabled)env=await initializeTestEnvironment({projectId:process.env.GCLOUD_PROJECT||'demo-civora',firestore:{rules:fs.readFileSync('../firestore.rules','utf8')}})});
 after(async()=>{if(env)await env.cleanup()});
-beforeEach(async()=>{if(env)await env.clearFirestore()});
+beforeEach(async()=>{if(env){await env.clearFirestore();for(const [uid,role] of [['v','vendor'],['d','driver'],['f','faculty']])await seed(`users/${uid}`,{role});}});
 const secured=(name,fn)=>test(name,{skip:!enabled},fn);
 const user=(uid,role)=>env.authenticatedContext(uid,{email:`${uid}@campus.edu`,...(role?{role}: {})}).firestore();
 const profile=uid=>({uid,name:'Campus User',email:`${uid}@campus.edu`,role:'student',department:'CSE',year:'2',section:'A',routeId:'',profileImage:'',notificationsEnabled:true,createdAt:serverTimestamp()});
@@ -17,10 +17,23 @@ secured('public registration cannot assign privileged roles or extra fields',asy
  await assertFails(setDoc(doc(db,'users/s'),{...profile('s'),role:'admin'}));
  await assertFails(updateDoc(doc(db,'users/s'),{role:'faculty'}));
  await assertFails(updateDoc(doc(db,'users/s'),{isAdmin:true}));
+ await assertFails(updateDoc(doc(db,'users/s'),{accessDisabled:false}));
  await assertFails(updateDoc(doc(db,'users/s'),{name:'x'.repeat(101)}));
  await assertSucceeds(updateDoc(doc(db,'users/s'),{department:'ECE'}));
  await assertFails(getDoc(doc(user('other'),'users/s')));
  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(),'users/s')));
+});
+secured('protected profile role and access state revoke cached privileged tokens',async()=>{
+ await seed('users/revoked',{role:'admin'});
+ await seed('users/private',{name:'Private user'});
+ const stale=user('revoked','admin');
+ await assertSucceeds(getDoc(doc(stale,'users/private')));
+ await seed('users/revoked',{role:'student'});
+ await assertFails(getDoc(doc(stale,'users/private')));
+ await seed('users/revoked',{role:'admin',accessDisabled:true});
+ await assertFails(getDoc(doc(stale,'users/private')));
+ await assertFails(getDoc(doc(stale,'users/revoked')));
+ await assertFails(updateDoc(doc(stale,'users/revoked'),{accessDisabled:false}));
 });
 secured('client cannot forge workflows, prices or capacity counters',async()=>{
  const db=user('s');for(const path of ['events/e','eventRegistrations/e_s','foodOrders/o','campusReports/r','activities/a','announcements/a'])await assertFails(setDoc(doc(db,path),{userId:'s',role:'admin'}));
