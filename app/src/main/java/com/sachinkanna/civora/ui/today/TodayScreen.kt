@@ -27,9 +27,11 @@ fun TodayScreen(
         }
     }
     val timetable=state.values<TimetableEntry>(CampusFeed.TIMETABLE)
+    val overrides=state.values<AcademicOverride>(CampusFeed.ACADEMIC_OVERRIDES)
     val holidays=holidayDates(state.values<CalendarDay>(CampusFeed.CALENDAR),profile.department)
-    val current=if(now.toLocalDate() in holidays)null else currentClass(timetable,now)
-    val next = nextClass(timetable, now, holidays)
+    val todayClasses=resolvedClassesForDate(timetable,overrides,now.toLocalDate())
+    val current=if(now.toLocalDate() in holidays)null else currentClass(todayClasses,now)
+    val next = nextAcademicClass(timetable,overrides,now,holidays)
     val notice =
         state
             .values<Announcement>(CampusFeed.ANNOUNCEMENTS)

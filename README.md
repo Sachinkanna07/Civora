@@ -28,14 +28,16 @@ Privileged authorization comes from Firebase Auth custom claims, never a user-ed
 
 ## Core features
 
-- Today: next class, relevant active notice, registered upcoming event, latest trip and active food order.
-- Timetable: daily and weekly schedules, rooms, next class and free periods.
+- Today: next authoritative class, relevant active notice, registered upcoming event, latest trip and active food order.
+- Timetable: effective semester ranges, weekly schedules, date-specific replacement/cancellation overrides, rooms, next class and free periods.
 - Announcements: exact department matching, categories, priority, expiry and document detail.
 - Events: discovery, filters, registration/cancellation, My Events, transactional capacity and QR tickets.
 - Food: canteen menus, single-canteen cart, server-priced orders, pickup tokens, status and history; pay at counter.
 - Transport: routes/stops, assigned buses, active trip location, freshness and approximate ETA.
 - Reports: categories, optional location/private photo upload, assigned maintenance progress and administrator resolution.
 - Mess: separate eligibility, meal windows, expiring QR passes, duplicate prevention and operator summaries.
+- Staff lifecycle: administrator preview, named responsibility transfer, explicit confirmation, access disable, token revocation and an audit trail.
+- Private images: server-issued, expiring upload permits and a cumulative per-user daily budget before immutable JPEG Storage writes.
 - Release preparation: API 36, R8/resource optimization, environment-only signing, opt-in Crashlytics and production callable App Check. Live activation and signing remain separate gates.
 - Discover: search over loaded campus content; structured clubs with follow/unfollow and related events.
 - Inbox and activity: private durable history, unread notifications, links to affected entities and FCM delivery architecture.
@@ -65,7 +67,8 @@ Kotlin, Jetpack Compose, Material 3, Navigation Compose, ViewModel, StateFlow, c
 | events | title, description, category, department, venue, startTime/endTime, organizer, createdBy, capacity, registeredCount, registrationEnabled, imageUrl, clubId |
 | eventRegistrations | deterministic eventId_userId; userId, organizerId, random token, attended, createdAt |
 | eventAttendance | registration ID; eventId, userId, organizerId, checkedBy, createdAt |
-| timetables | courseId/name, faculty, dayOfWeek (ISO 1–7), startMinute/endMinute, room, department, year, section |
+| timetables | courseId/name, faculty, dayOfWeek (ISO 1–7), startMinute/endMinute, room, department, year, section, effectiveFrom/effectiveTo |
+| academicOverrides | authoritative date, CLASS/CANCEL kind, base course, cohort, room/faculty and reason |
 | canteens / menuItems | vendor assignment and opening; menu canteenId, pricePaise, availability |
 | foodOrders | userId_requestId; vendorId, canteenId, priced items, totalPaise, token, status, paymentState, timestamps |
 | buses / busRoutes | driverId, routeId; route name and embedded stops with coordinates |
@@ -74,7 +77,8 @@ Kotlin, Jetpack Compose, Material 3, Navigation Compose, ViewModel, StateFlow, c
 | activities / notifications | userId, title/body, type, status, destination, entityId, createdAt; inbox adds category/read |
 | clubs / clubFollowers | structured club metadata; deterministic clubId_userId follower record |
 | campusLocations | name, category, description, latitude/longitude |
-| roleAudit | trusted invitation actor, target, role and timestamp |
+| roleAudit | trusted invitation/deactivation actor, target, replacement, transferred counts and timestamp |
+| uploadPermits / uploadBudgets | server-issued path authorization and per-user daily image count; client reads/writes denied |
 
 Money uses integer paise. Backend timestamps use server timestamps; client time is used only for display and schedule calculations. Queries are limited to 100 rows (legacy registered-ID helper: 200); filters are scoped by user, assignment or academic details. Required composite indexes are in `firestore.indexes.json`. Campus-readable department information is not confidential; this deployment assumes one campus per Firebase project. See [security assumptions](docs/SECURITY.md) and [audit](docs/AUDIT.md).
 
@@ -119,15 +123,16 @@ npx firebase-tools emulators:exec --project demo-civora --only auth,firestore,fu
 
 The plain Node command runs policy tests and skips emulator checks when emulator environment variables are absent. The emulator command exercises rules and authenticated callable workflows, including racing for the final event seat, ticket replay rejection, authoritative menu pricing, report transitions and driver ownership. Android tests cover roles/registration, filters, timetable gaps/next class, status transitions, ETA and fake-backed ViewModel recovery/cart behavior. Instrumentation requires a connected Android device: `./gradlew connectedDebugAndroidTest`.
 
-## Screenshots
+## Runtime evidence
 
-Verified product screenshots are not yet included. Capture Today, Discover, ticket, vendor, driver and admin screens from a configured Android device; do not represent mockups as runtime screenshots.
+Actual emulator captures, their capture manifest and the demo recording live under `demo/final`. They use fictional local-emulator accounts and simulated GPS where stated. They do not establish physical-device, live-Firebase or institutional-pilot readiness.
 
-## Roadmap
+## Remaining release work
 
-- Embedded camera QR scanning (current attendance accepts a scanned/pasted ticket payload and validates it securely).
-- Image uploads (current optional images use HTTPS URLs), embedded map and institution identity admission.
-- Pagination beyond bounded recent feeds and background driver tracking with a foreground service.
-- Automated invitation email delivery and production App Check/rate limiting policy.
+- Obtain institutional controller/publisher, privacy, retention, support and pilot approvals.
+- Configure the approved live Firebase services, billing/budgets, App Check enforcement, monitoring and FCM, then execute live negative-permission checks.
+- Supply release signing through the documented secure environment and complete Play Console declarations.
+- Complete representative physical-device GPS, camera/optical QR, background, accessibility and network-loss validation.
+- Add automated invitation email delivery if the approved operational process requires it.
 
 No payment gateway, LMS, social feed or chatbot is included. Firestore cache supports browsing through temporary disconnection; sensitive actions need a connection. ETA is a distance-based approximation to a selected stop, not traffic-aware routing. Real push delivery, GPS accuracy and all role UI flows still require validation on a configured device.

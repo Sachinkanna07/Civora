@@ -18,6 +18,9 @@ import java.security.MessageDigest
 object PhotoRepository {
     private const val MAX_BYTES=3L*1024*1024
     suspend fun upload(context: Context,uri: Uri,path: String,progress: (Float)->Unit): String {
+        val authorizedPath=(com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("authorizePhotoUpload").call(mapOf("path" to path)).await().getData() as? Map<*,*>)?.get("path") as? String
+            ?: error("Photo upload was not authorized.")
+        require(authorizedPath==path) { "Photo destination changed. Choose the photo again." }
         val bytes=withContext(Dispatchers.IO) {
             val bitmap=if(Build.VERSION.SDK_INT>=28) ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver,uri)) { decoder,info,_->
                 val ratio=maxOf(info.size.width,info.size.height)/1600f

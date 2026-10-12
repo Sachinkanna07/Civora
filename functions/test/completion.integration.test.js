@@ -51,9 +51,15 @@ test('production hardening: bounded rush concurrency, stale claims, abuse limits
   execFileSync(process.execPath,['scripts/set-account-access.js',student.uid,'enable'],{env:process.env});
   assert.equal((await auth.getUser(student.uid)).disabled,false);
   assert.equal((await db.doc(`users/${student.uid}`).get()).data().accessDisabled,false);
+  // Use the actor whose session has not been intentionally revoked above.
+  const photoPath=`reports/${deleting.uid}/permit_${suffix}/photo.jpg`;
+  assert.equal((await call(deleting,'authorizePhotoUpload',{path:photoPath})).result?.path,photoPath);
+  assert.equal((await call(deleting,'authorizePhotoUpload',{path:photoPath})).result?.path,photoPath,'retry reuses one permit and budget entry');
+  const day=new Date().toISOString().slice(0,10);await db.doc(`uploadBudgets/${deleting.uid}_${day}`).set({uid:deleting.uid,day,count:20});
+  assert.equal((await call(deleting,'authorizePhotoUpload',{path:`reports/${deleting.uid}/over_budget/photo.jpg`})).error?.status,'RESOURCE_EXHAUSTED');
   assert.equal((await call(admin,'getOperationsSummary',{})).error,undefined); // warm discovery before seeding a minute-bound quota
   const minute=Math.floor(Date.now()/60000);
-  const batch=db.batch();for(let shard=0;shard<16;shard++)batch.set(db.doc(`requestLimits/${admin.uid}_getOperationsSummary_${shard}`),{window:minute,count:10});await batch.commit();
+  await db.doc(`requestLimits/${admin.uid}_getOperationsSummary_${minute}`).set({window:minute,count:60});
   assert.equal((await call(admin,'getOperationsSummary',{})).error?.status,'RESOURCE_EXHAUSTED');
   assert.equal((await call(deleting,'requestAccountDeletion',{confirm:false})).error?.status,'INVALID_ARGUMENT');
   const ownEvent=`event_${suffix}`;

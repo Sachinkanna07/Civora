@@ -72,6 +72,7 @@ service cloud.firestore {
     match /staffDirectory/{uid} { allow read: if admin() || owner(uid); }
     match /departments/{id} { allow read: if authenticated(); }
     match /academicCalendar/{id} { allow read: if authenticated(); }
+    match /academicOverrides/{id} { allow read: if authenticated(); }
     match /transportUpdates/{id} { allow read: if authenticated(); }
     match /messHalls/{id} { allow read: if authenticated(); }
     match /mealPeriods/{id} { allow read: if authenticated(); }

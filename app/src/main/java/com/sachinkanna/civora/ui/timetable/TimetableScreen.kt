@@ -20,15 +20,16 @@ fun TimetableScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: (
     LaunchedEffect(Unit) {while(true) {kotlinx.coroutines.delay(30000);now=com.sachinkanna.civora.data.model.CampusPolicy.now()}}
     var day by rememberSaveable {mutableIntStateOf(now.dayOfWeek.value)}
     val all=state.values<TimetableEntry>(CampusFeed.TIMETABLE)
+    val overrides=state.values<AcademicOverride>(CampusFeed.ACADEMIC_OVERRIDES)
     val department=all.firstOrNull()?.department.orEmpty()
     val calendar=state.values<CalendarDay>(CampusFeed.CALENDAR)
     val holidays=holidayDates(calendar,department)
     val displayDay=if(mode=="Today")now.dayOfWeek.value else day
     val date=now.toLocalDate().with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).plusDays((displayDay-1).toLong())
-    val entries=all.filter {it.dayOfWeek==displayDay}.sortedBy {it.startMinute}
+    val entries=resolvedClassesForDate(all,overrides,date)
     val holiday=date in holidays
     val current=if(!holiday&&date==now.toLocalDate())currentClass(entries,now)else null
-    val next=nextClass(all,now,holidays)
+    val next=nextAcademicClass(all,overrides,now,holidays)
     CampusPage("Timetable",back) {
         item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {listOf("Today","Week").forEach {m->FilterChip(mode==m,{mode=m},label={Text(m)})}}}
         if(mode=="Week")item {FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {DayOfWeek.entries.forEach {d->FilterChip(day==d.value,{day=d.value},label={Text(d.name.take(3))})}}}

@@ -32,7 +32,9 @@ fun AdmissionScreen(profile: UserProfile,state: AuthUiState,vm: AuthViewModel,lo
         state.error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         state.notice?.let {Text(it)}
         if(state.loading)LinearProgressIndicator(Modifier.fillMaxWidth())
-        if(!profile.emailVerified)Button(onClick={vm.sendVerificationEmail()},enabled=!state.loading,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("Send verification email")}
+        if(!profile.emailVerified)Button(onClick={vm.sendVerificationEmail()},enabled=!state.loading&&state.verificationCooldownSeconds==0,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){
+            Text(if(state.verificationCooldownSeconds>0)"Send again in ${state.verificationCooldownSeconds}s" else "Send verification email")
+        }
         OutlinedButton(onClick={vm.checkAdmission()},enabled=!state.loading,modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("Check campus access")}
         Text("Independent Civora app. Institutional endorsement has not been confirmed.",style=MaterialTheme.typography.bodySmall)
         if(BuildConfig.CIVORA_SUPPORT_EMAIL.isNotBlank())Text("Civora support: ${BuildConfig.CIVORA_SUPPORT_EMAIL}")

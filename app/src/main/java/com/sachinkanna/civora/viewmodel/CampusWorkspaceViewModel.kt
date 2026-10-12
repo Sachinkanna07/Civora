@@ -69,7 +69,7 @@ class CampusWorkspaceViewModel(
                         CampusFeed.EVENTS,
                         CampusFeed.REGISTRATIONS,
                         CampusFeed.ANNOUNCEMENTS,
-                        CampusFeed.TIMETABLE, CampusFeed.CLUBS, CampusFeed.LOCATIONS, CampusFeed.DEPARTMENTS,
+                        CampusFeed.TIMETABLE, CampusFeed.ACADEMIC_OVERRIDES, CampusFeed.CLUBS, CampusFeed.LOCATIONS, CampusFeed.DEPARTMENTS,
                     )
                 UserRole.ADMIN ->
                     listOf(
@@ -84,7 +84,7 @@ class CampusWorkspaceViewModel(
                         CampusFeed.CANTEENS,
                         CampusFeed.CLUBS,
                         CampusFeed.LOCATIONS,
-                        CampusFeed.MENU, CampusFeed.STAFF, CampusFeed.STUDENTS, CampusFeed.DEPARTMENTS, CampusFeed.CALENDAR, CampusFeed.TRANSPORT_UPDATES, CampusFeed.MESS_HALLS, CampusFeed.MEAL_PERIODS, CampusFeed.ENTITLEMENTS,
+                        CampusFeed.MENU, CampusFeed.STAFF, CampusFeed.STUDENTS, CampusFeed.DEPARTMENTS, CampusFeed.CALENDAR, CampusFeed.ACADEMIC_OVERRIDES, CampusFeed.TRANSPORT_UPDATES, CampusFeed.MESS_HALLS, CampusFeed.MEAL_PERIODS, CampusFeed.ENTITLEMENTS,
                     )
             }
         feeds.forEach(::retry)

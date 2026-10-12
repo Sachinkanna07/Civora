@@ -1,18 +1,18 @@
 {
   "score": 4,
-  "summary": "Local source/rules audit and 25 passing isolated backend tests cover verification, protected membership, role/ownership checks, stale privileged claims, workflow races and private media. Live deployment/attestation and remaining lifecycle/cost controls prevent production security certification.",
+  "summary": "Local source/rules audit covers verified admission, protected membership, role/ownership checks, stale privileged claims, workflow races, staff transfer and permit-gated private media. Live deployment/attestation and external policy/configuration gates prevent production security certification.",
   "findings": [
     {
-      "check": "Cumulative storage and signup abuse",
+      "check": "Authentication and storage abuse",
       "severity": "moderate",
-      "issue": "Admission and per-call quotas are enforced, but cumulative direct-upload/signup budgets and approved orphan cleanup remain incomplete.",
-      "recommendation": "Complete upload/signup controls and approved cleanup, then configure live cost alerts. Per-account callable quotas do not bound every resource cost."
+      "issue": "Server-issued upload permits, a daily per-user image budget and exact callable quotas are implemented. Firebase Authentication signup abuse controls, orphan cleanup and project-wide cost budgets remain external or incomplete.",
+      "recommendation": "Configure approved Authentication protections, budget alerts and orphan cleanup before a pilot. Validate permits with production App Check and Storage enforcement."
     },
     {
       "check": "Operational account lifecycle",
       "severity": "minor",
-      "issue": "Suspension and student deletion are tested; staff responsibility transfer/deletion remains incomplete. Production deletion is intentionally disabled pending approved retention and activation.",
-      "recommendation": "Complete staff transfer/cleanup and an external deletion route. Use the trusted suspension tool rather than relying solely on Auth-console token expiry. Obtain policy approval before activating production deletion."
+      "issue": "Suspension, student deletion and same-role staff responsibility transfer/deactivation are implemented and locally tested. Production deletion is intentionally disabled pending approved retention and activation.",
+      "recommendation": "Validate the staff workflow with approved operators and current production records. Use the trusted suspension workflow and obtain policy approval before activating production deletion."
     },
     {
       "check": "Deployment and monitoring evidence",

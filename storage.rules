@@ -8,18 +8,19 @@ service firebase.storage {
     function signedIn() { return request.auth != null && request.auth.token.get('email_verified',false) == true && profile().get('accessDisabled',false) == false && profile().get('membershipGranted',false) == true && profile().get('membershipEmail','') == request.auth.token.get('email','').lower(); }
     function role(value) { return signedIn() && request.auth.token.get('role', 'student') == value && profile().role == value; }
     function image() { return request.resource.size > 0 && request.resource.size <= 3 * 1024 * 1024 && request.resource.contentType == 'image/jpeg'; }
+    function permit(id, path) { return firestore.exists(/databases/(default)/documents/uploadPermits/$(id)) && firestore.get(/databases/(default)/documents/uploadPermits/$(id)).data.uid == request.auth.uid && firestore.get(/databases/(default)/documents/uploadPermits/$(id)).data.path == path && firestore.get(/databases/(default)/documents/uploadPermits/$(id)).data.expiresAt > request.time; }
     function report(reportId) { return firestore.get(/databases/(default)/documents/campusReports/$(reportId)).data; }
     function reportReader(reportId) { return signedIn() && (role('admin') || report(reportId).createdBy == request.auth.uid || (role('maintenance') && report(reportId).assignedTo == request.auth.uid)); }
     match /reports/{uid}/{requestId}/photo.jpg {
-      allow create: if resource == null && role('student') && request.auth.uid == uid && image();
+      allow create: if resource == null && role('student') && request.auth.uid == uid && image() && permit(uid + '_report_' + requestId, 'reports/' + uid + '/' + requestId + '/photo.jpg');
       allow get: if signedIn() && (request.auth.uid == uid || reportReader(uid + '_' + requestId));
     }
     match /reportEvidence/{reportId}/{uid}/{imageId} {
-      allow create: if resource == null && role('maintenance') && request.auth.uid == uid && report(reportId).assignedTo == uid && report(reportId).status in ['ACCEPTED','IN_PROGRESS'] && image() && imageId.matches('[A-Za-z0-9_-]+\\.jpg');
+      allow create: if resource == null && role('maintenance') && request.auth.uid == uid && image() && imageId.matches('[A-Za-z0-9_-]+\\.jpg') && permit(uid + '_evidence_' + imageId, 'reportEvidence/' + reportId + '/' + uid + '/' + imageId);
       allow get: if reportReader(reportId);
     }
     match /campusImages/{uid}/{imageId} {
-      allow create: if resource == null && signedIn() && request.auth.uid == uid && (role('faculty') || role('admin')) && image() && imageId.matches('[A-Za-z0-9_-]+\\.jpg');
+      allow create: if resource == null && signedIn() && request.auth.uid == uid && (role('faculty') || role('admin')) && image() && imageId.matches('[A-Za-z0-9_-]+\\.jpg') && permit(uid + '_content_' + imageId, 'campusImages/' + uid + '/' + imageId);
       allow get: if signedIn();
     }
     match /{path=**} { allow read, write: if false; }

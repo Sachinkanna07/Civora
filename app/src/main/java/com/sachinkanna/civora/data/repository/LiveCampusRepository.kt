@@ -26,7 +26,7 @@ enum class CampusFeed {
     BUSES,
     TRIPS,
     LOCATIONS,
-    STUDENTS, STAFF, DEPARTMENTS, CALENDAR, TRANSPORT_UPDATES, MESS_HALLS, MEAL_PERIODS, ENTITLEMENTS, MEAL_CHECKINS,
+    STUDENTS, STAFF, DEPARTMENTS, CALENDAR, ACADEMIC_OVERRIDES, TRANSPORT_UPDATES, MESS_HALLS, MEAL_PERIODS, ENTITLEMENTS, MEAL_CHECKINS,
 }
 
 data class Ticket(val id: String, val eventId: String, val token: String, val attended: Boolean, val userName: String="", val eventTitle: String="")
@@ -131,6 +131,7 @@ class LiveCampusRepository : CampusGateway {
             CampusFeed.STAFF -> db.collection("staffDirectory").orderBy("name")
             CampusFeed.DEPARTMENTS -> db.collection("departments").orderBy("name")
             CampusFeed.CALENDAR -> db.collection("academicCalendar").orderBy("date")
+            CampusFeed.ACADEMIC_OVERRIDES -> db.collection("academicOverrides").let {if(staff)it else it.whereEqualTo("department",p.department).whereEqualTo("year",p.year).whereIn("section",listOf("",p.section).distinct())}.orderBy("date")
             CampusFeed.TRANSPORT_UPDATES -> db.collection("transportUpdates").orderBy("createdAt", Query.Direction.DESCENDING)
             CampusFeed.MESS_HALLS -> db.collection("messHalls").let { if(p.role == UserRole.MESS) it.whereEqualTo("operatorId", p.uid) else it }
             CampusFeed.MEAL_PERIODS -> db.collection("mealPeriods")
@@ -245,6 +246,7 @@ class LiveCampusRepository : CampusGateway {
             CampusFeed.STAFF -> d.toObject(StaffMember::class.java)!!.copy(uid = d.id)
             CampusFeed.DEPARTMENTS -> d.toObject(Department::class.java)!!.copy(id = d.id)
             CampusFeed.CALENDAR -> d.toObject(CalendarDay::class.java)!!.copy(id = d.id)
+            CampusFeed.ACADEMIC_OVERRIDES -> d.toObject(AcademicOverride::class.java)!!.copy(id=d.id)
             CampusFeed.TRANSPORT_UPDATES -> TransportUpdate(d.id,d.getString("busId").orEmpty(),d.getString("routeId").orEmpty(),d.getString("busName").orEmpty(),d.getString("kind").orEmpty(),(d.getLong("delayMinutes")?:0).toInt(),d.getString("note").orEmpty(),d.time("createdAt"))
             CampusFeed.MESS_HALLS -> d.toObject(MessHall::class.java)!!.copy(id = d.id)
             CampusFeed.MEAL_PERIODS -> MealPeriod(d.id,d.getString("messId").orEmpty(),d.getString("label").orEmpty(),d.time("opensAt"),d.time("closesAt"))

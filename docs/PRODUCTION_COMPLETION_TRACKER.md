@@ -1,8 +1,8 @@
 ﻿# Civora production completion tracker
 
-Updated: 11 October 2026 (Asia/Kolkata). Evidence describes executed checks. Local tests do not establish live readiness.
+Updated: 12 October 2026 (Asia/Kolkata). Evidence describes executed checks. Local tests do not establish live readiness.
 
-Starting HEAD: c18da64. Remote master independently verified/fetched: 0f09980. Branch: feat/civora-production-completion. Pre-existing v2 work was preserved in eb2a8cd. Source checkpoints: eb2a8cd, f26ee72, c8758a0, d7db5a7.
+Current base HEAD: fd0b068. Remote master independently verified/fetched: 0f09980. Branch: feat/civora-production-completion. The current engineering pass remains an uncommitted review candidate.
 
 Statuses: NOT_STARTED, IN_PROGRESS, IMPLEMENTED, TESTED, VERIFIED, BLOCKED. TESTED covers bounded checks; VERIFIED requires the stated actual workflow and environment.
 
@@ -22,7 +22,7 @@ Statuses: NOT_STARTED, IN_PROGRESS, IMPLEMENTED, TESTED, VERIFIED, BLOCKED. TEST
 | Design / accessibility | IMPLEMENTED | TESTED | IN_PROGRESS | Insets fix rebuild; large fonts, TalkBack and contrast |
 | Firestore / Storage | IMPLEMENTED | TESTED | IN_PROGRESS | Live rules/index/attestation |
 | Student privacy / deletion | IMPLEMENTED | TESTED | NOT_STARTED | Confirmation journey; production activation requires approval |
-| Staff deletion / retention | IN_PROGRESS | IN_PROGRESS | NOT_STARTED | Responsibility transfer/cleanup; retention approval and public URLs |
+| Staff deletion / retention | IMPLEMENTED | TESTED | NOT_STARTED | Institutional retention approval, public URLs and production activation |
 | App Check / abuse / monitoring | IMPLEMENTED | TESTED | NOT_STARTED | Live attestation/crash receipt; cumulative upload/signup budgets |
 | CI / release / signing | IMPLEMENTED | IN_PROGRESS | IN_PROGRESS | Rebuild latest layout fix, remote CI, secure upload key |
 | Screenshots / video / performance | IN_PROGRESS | TESTED | IN_PROGRESS | Final role captures/video; physical measurements |
@@ -30,13 +30,13 @@ Statuses: NOT_STARTED, IN_PROGRESS, IMPLEMENTED, TESTED, VERIFIED, BLOCKED. TEST
 
 ## Executed evidence
 
-- c8758a0 Android build: 27 unit tests passed; debug APK, instrumentation APK, optimized release APK and AAB built. lintDebug and lintVitalRelease passed; debug lint reports zero errors and 45 warnings. Log: campus-admission-android-final.log. d7db5a7 requires a new build/device verification.
-- Latest combined backend suite: 25 tests passed, zero failed/cancelled/skipped, 599,343 ms. Log: campus-admission-backend.log. Actual local Auth OOB verification/activation, exact-domain admission, exception email binding/revocation, protected membership/rules/media, ownership, workflow transitions, conflict races and deletion guards were exercised.
+- 12 October Android clean build: 27 unit tests passed; debug APK, instrumentation APK, optimized unsigned release APK and AAB built. `lintDebug` and `lintVitalRelease` passed. The full command completed in 7m 48s.
+- 12 October combined backend suite: 27 tests executed against local Auth/Firestore/Functions/Storage; 26 passed initially and one new staff-transfer fixture failed because it omitted the active admin directory record. After correcting only that fixture, both staff lifecycle tests passed. All 27 behaviors therefore have passing executed evidence, with the complete pre-fix output retained locally in `docs/evidence/backend-current.log`.
 - Bounded stress: 50 orders, concurrency five, 40,671 ms including fixture setup; eight identical concurrent checkout requests return the same order/token. This is emulator correctness evidence, not production throughput.
-- API 35 device suite at c8758a0: four tests passed in 23.448 seconds on retry. Registration has no privileged role input; food cart survives saved-state restoration and Back navigation; isolated project and disabled push auto-init asserted. Initial attempt failed with a process-start ANR before tests; retained as failed evidence.
+- 12 October API 35 connected suite: four tests passed in 47 seconds. Registration has no privileged role input; food cart survives saved-state restoration and explicit app-bar Back navigation; isolated project and disabled push auto-init are asserted. Two earlier attempts exposed a reproducible focus issue in the test's use of system Back after state restoration; the test now activates the same visible app Back control used by users.
 - Actual Civora launch succeeded on the task-owned Android 15/API 35 x86_64 emulator at 720x1280/320 dpi. Student Today and food order placement reached the local backend. Runtime capture exposed duplicate top insets; d7db5a7 corrects consumption and guards restored admission navigation.
 - Full npm audit: zero vulnerabilities across 294 dependencies. Admin 14.5.0, Functions 7.4.0, patched gRPC 1.14.6. Log: npm-audit-final.json.
-- c8758a0 artifact hashes are recorded in demo/final/artifact-hashes.json; release binaries are unsigned. They will be replaced after the latest source build. No signing key was created and no Crashlytics mapping uploaded.
+- Updated d7db5a7 artifact hashes are recorded in demo/final/artifact-hashes.json. Release manifest inspection confirms HTTPS-only configuration; package/version/target API and unsigned AAB were checked. No signing key was created and no Crashlytics mapping uploaded.
 - Read-only production Firestore returned HTTP 403 SERVICE_DISABLED; Functions listing failed. Billing/Auth state is not inferred from older checks. No deployment attempted.
 - Current captures use fictional, explicitly labeled DEMO fixtures. Earlier October 8 captures are historical. Physical GPS, optical scanning, FCM and live attestation remain unverified.
 
@@ -44,4 +44,4 @@ Raw logs and emulator exports under docs/evidence are ignored. CLI logs may cont
 
 ## Exit gate
 
-**NOT READY.** Engineering gaps include staff responsibility transfer/deletion, semester exceptions and upload/signup cost controls. Device journeys and live verification are incomplete. Exact-domain verification is implemented, but institutional authorization, operator contacts, retention/deletion activation, Firebase billing/regions/deployment, signing and publication remain separate approval gates. No automated production deletion is active.
+**NOT READY FOR PRODUCTION.** Staff responsibility transfer/deactivation/deletion, academic effective-date overrides and daily upload authorization limits are now implemented and locally tested. Physical-device journeys and live verification remain incomplete. Institutional authorization, operator contacts, retention/deletion activation, Firebase billing/regions/deployment, signing and publication remain separate approval gates. No automated production deletion is active.

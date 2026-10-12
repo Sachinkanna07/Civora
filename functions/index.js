@@ -13,3 +13,4 @@ Object.assign(exports,require('./workflows/mess'));
 Object.assign(exports,require('./workflows/analytics'));
 Object.assign(exports,require('./workflows/privacy'));
 Object.assign(exports,require('./workflows/admission'));
+exports.authorizePhotoUpload=require('./attachments').authorizePhotoUpload;

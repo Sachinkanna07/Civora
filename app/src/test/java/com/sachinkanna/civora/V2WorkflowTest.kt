@@ -19,6 +19,16 @@ class V2WorkflowTest {
         assertNull(currentClass(listOf(c),monday.withHour(10).withMinute(0)))
         assertEquals(LocalDate.of(2026,10,12),nextClass(listOf(c),monday.minusHours(1),setOf(monday.toLocalDate()))!!.date.toLocalDate())
     }
+    @Test fun semesterRangesAndDateOverridesProduceOneAuthoritativeDay() {
+        val date=LocalDate.of(2026,10,12)
+        val old=TimetableEntry(id="old",courseId="math",courseName="Math",dayOfWeek=1,startMinute=540,endMinute=600,effectiveFrom="2026-01-01",effectiveTo="2026-06-30")
+        val active=old.copy(id="active",effectiveFrom="2026-07-01",effectiveTo="2026-12-31")
+        val moved=AcademicOverride(id="move",date=date.toString(),kind="CLASS",baseCourseId="math",courseId="math",courseName="Math",faculty="Faculty",startMinute=660,endMinute=720,room="B201")
+        assertEquals(listOf("override_move"),resolvedClassesForDate(listOf(old,active),listOf(moved),date).map {it.id})
+        val cancelled=moved.copy(kind="CANCEL")
+        assertTrue(resolvedClassesForDate(listOf(old,active),listOf(cancelled),date).isEmpty())
+        assertEquals(11,nextAcademicClass(listOf(old,active),listOf(moved),date.atTime(10,30),emptySet())!!.date.hour)
+    }
     @Test fun etaRequiresTheSelectedBoardingStopAndFreshLocation() {
         val route=BusRoute(stops=listOf(BusStop("First",13.0,80.0),BusStop("Library",13.01,80.01)))
         assertNull(selectedBoardingStop(route,""))

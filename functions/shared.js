@@ -25,19 +25,33 @@ function onCall(name, handler, {requiresAdmission=true}={}) {
     if (deletion.exists) throw new HttpsError('failed-precondition','Account deletion is in progress.');
     if(requiresAdmission&&!require('./admission-policy').hasCampusAccess(user,req.auth.token,profile.data()))
       throw new HttpsError('permission-denied','Verify your email and obtain campus admission before using campus services.');
-    const window = Math.floor(Date.now()/60000);
-    // Server-selected shards avoid serializing a lunch rush on one document.
-    // Sixteen shards with ten requests each give a hard 160/minute upper bound.
-    const shard = randomBytes(1)[0] % 16;
-    const ref = db.doc(`requestLimits/${req.auth.uid}_${name}_${shard}`);
+    const policy = CALL_LIMITS[name] || {max:60,windowMs:60000};
+    const window = Math.floor(Date.now()/policy.windowMs);
+    // One counter serializes only repeated calls from the same account and
+    // action. It gives an exact limit without creating a campus-wide hot spot.
+    const ref = db.doc(`requestLimits/${req.auth.uid}_${name}_${window}`);
     await db.runTransaction(async tx => {
-      const old = await tx.get(ref); const count = old.data()?.window === window ? old.data().count : 0;
-      if (count >= 10) throw new HttpsError('resource-exhausted','Too many requests. Try again in a minute.');
-      tx.set(ref,{window,count:count+1,expiresAt:Timestamp.fromMillis(Date.now()+86400000)});
+      const old = await tx.get(ref); const count = old.data()?.count || 0;
+      if (count >= policy.max) throw new HttpsError('resource-exhausted',policy.message || 'Too many requests. Wait a moment and try again.');
+      tx.set(ref,{window,count:count+1,expiresAt:Timestamp.fromMillis(Date.now()+Math.max(policy.windowMs*2,86400000))});
     });
     return handler(req);
   });
 }
+const CALL_LIMITS = Object.freeze({
+  activateCampusAccess:{max:6,windowMs:15*60000,message:'Too many access checks. Wait 15 minutes before trying again.'},
+  lookupAdmissionCandidate:{max:30,windowMs:60000},
+  invitePrivilegedUser:{max:10,windowMs:60*60000},
+  // Allows a short order rush and idempotent retries while bounding abuse.
+  placeFoodOrder:{max:30,windowMs:60000},
+  submitReport:{max:6,windowMs:60*60000,message:'Report limit reached. Wait before submitting another report.'},
+  authorizePhotoUpload:{max:24,windowMs:24*60*60000,message:'Daily photo limit reached. Contact campus operations if more evidence is required.'},
+  publishTripLocation:{max:8,windowMs:60000},
+  reportTransportIssue:{max:12,windowMs:60*60000},
+  publishCampusContent:{max:20,windowMs:60*60000},
+  deactivateStaffAccount:{max:10,windowMs:60*60000},
+  deleteDeactivatedStaffAccount:{max:5,windowMs:60*60000},
+});
 function requireAuth(req, roles) {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Sign in to continue.');
   const role = req.auth.token.role || 'student';

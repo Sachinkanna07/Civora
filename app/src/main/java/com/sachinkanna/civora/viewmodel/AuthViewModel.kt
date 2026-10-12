@@ -7,6 +7,8 @@ import com.sachinkanna.civora.data.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class AuthUiState(
@@ -14,11 +16,13 @@ data class AuthUiState(
     val profile: UserProfile? = null,
     val error: String? = null,
     val notice: String? = null,
+    val verificationCooldownSeconds: Int = 0,
 )
 
 class AuthViewModel(private val repository: AuthRepository = AuthRepository()) : ViewModel() {
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
+    private var verificationCooldownJob: Job? = null
 
     init {
         sessionCheck()
@@ -52,11 +56,24 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     }
 
     fun sendVerificationEmail() = viewModelScope.launch {
-        if(_state.value.loading)return@launch
+        if(_state.value.loading||_state.value.verificationCooldownSeconds>0)return@launch
         _state.value=_state.value.copy(loading=true,error=null,notice=null)
         runCatching {repository.sendVerificationEmail()}
-            .onSuccess {_state.value=_state.value.copy(loading=false,notice="Verification email sent. Check your inbox and spam folder.")}
+            .onSuccess {
+                _state.value=_state.value.copy(loading=false,notice="Verification email sent. Check your inbox and spam folder.")
+                startVerificationCooldown()
+            }
             .onFailure {_state.value=_state.value.copy(loading=false,error="Verification email could not be sent. Wait a moment and try again.")}
+    }
+    private fun startVerificationCooldown() {
+        verificationCooldownJob?.cancel()
+        verificationCooldownJob=viewModelScope.launch {
+            for(seconds in 60 downTo 1){
+                _state.value=_state.value.copy(verificationCooldownSeconds=seconds)
+                delay(1000)
+            }
+            _state.value=_state.value.copy(verificationCooldownSeconds=0)
+        }
     }
     fun checkAdmission() = viewModelScope.launch {
         if(_state.value.loading)return@launch

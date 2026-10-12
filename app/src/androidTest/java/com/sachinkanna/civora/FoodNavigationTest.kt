@@ -4,7 +4,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
-import androidx.test.espresso.Espresso.pressBack
 import com.sachinkanna.civora.data.model.*
 import com.sachinkanna.civora.data.repository.*
 import com.sachinkanna.civora.ui.food.FoodScreen
@@ -38,10 +37,10 @@ class FoodNavigationTest {
         compose.onNodeWithText("Your cart").assertIsDisplayed()
         restore.emulateSavedInstanceStateRestore()
         compose.onNodeWithText("Your cart").assertIsDisplayed()
-        pressBack()
+        compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Campus food").assertIsDisplayed()
         compose.runOnIdle {assertEquals(0,exits)}
-        pressBack()
+        compose.onNodeWithContentDescription("Back").performClick()
         compose.runOnIdle {assertEquals(1,exits)}
     }
 }

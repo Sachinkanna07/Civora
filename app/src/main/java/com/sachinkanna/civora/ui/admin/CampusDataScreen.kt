@@ -14,6 +14,7 @@ import com.sachinkanna.civora.viewmodel.*
 private enum class DataKind(val title: String, val collection: String, val fields: List<String>) {
     DEPARTMENT("Department", "departments", listOf("name","code")),
     CALENDAR("Academic calendar", "academicCalendar", listOf("title","date","department","holiday")),
+    OVERRIDE("Date override", "academicOverrides", listOf("date","kind","baseCourseId","courseId","courseName","faculty","department","year","section","startMinute","endMinute","room","reason")),
     CANTEEN("Canteen", "canteens", listOf("name", "vendorId", "open")),
     MENU("Menu item", "menuItems", listOf("name", "canteenId", "pricePaise", "available")),
     BUS("Bus assignment", "buses", listOf("name", "routeId", "driverId")),
@@ -32,6 +33,8 @@ private enum class DataKind(val title: String, val collection: String, val field
             "startMinute",
             "endMinute",
             "room",
+            "effectiveFrom",
+            "effectiveTo",
         ),
     ),
     CLUB("Club", "clubs", listOf("name", "description", "category")),
@@ -47,7 +50,7 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
     var kind by rememberSaveable { mutableStateOf(DataKind.CANTEEN) }
     var entityId by rememberSaveable { mutableStateOf(java.util.UUID.randomUUID().toString()) }
     var values by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    val feed=when(kind) {DataKind.DEPARTMENT->CampusFeed.DEPARTMENTS;DataKind.CALENDAR->CampusFeed.CALENDAR;DataKind.CANTEEN->CampusFeed.CANTEENS;DataKind.MENU->CampusFeed.MENU;DataKind.BUS->CampusFeed.BUSES;DataKind.ROUTE->CampusFeed.ROUTES;DataKind.TIMETABLE->CampusFeed.TIMETABLE;DataKind.CLUB->CampusFeed.CLUBS;DataKind.LOCATION->CampusFeed.LOCATIONS}
+    val feed=when(kind) {DataKind.DEPARTMENT->CampusFeed.DEPARTMENTS;DataKind.CALENDAR->CampusFeed.CALENDAR;DataKind.OVERRIDE->CampusFeed.ACADEMIC_OVERRIDES;DataKind.CANTEEN->CampusFeed.CANTEENS;DataKind.MENU->CampusFeed.MENU;DataKind.BUS->CampusFeed.BUSES;DataKind.ROUTE->CampusFeed.ROUTES;DataKind.TIMETABLE->CampusFeed.TIMETABLE;DataKind.CLUB->CampusFeed.CLUBS;DataKind.LOCATION->CampusFeed.LOCATIONS}
     val records=state.feed(feed).items.mapNotNull(::editorRecord)
     CampusPage("Manage campus data", back) {
         item {
@@ -94,7 +97,7 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
                             { values = values + (field to it.toString()) },
                         )
                     }
-                else if(field in listOf("vendorId","driverId","canteenId","routeId","department","faculty","room","dayOfWeek","year","section")) {
+                else if(field in listOf("vendorId","driverId","canteenId","routeId","department","faculty","room","dayOfWeek","year","section","kind","baseCourseId")) {
                     val choices=when(field) {
                         "vendorId","driverId","faculty"->state.values<StaffMember>(CampusFeed.STAFF).filter {it.active&&it.role==when(field) {"vendorId"->"vendor";"driverId"->"driver";else->"faculty"}}.map {Choice(if(field=="faculty")it.name else it.uid,it.name,it.department)}
                         "canteenId"->state.values<Canteen>(CampusFeed.CANTEENS).map {Choice(it.id,it.name)}
@@ -103,6 +106,8 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
                         "room"->state.values<CampusLocation>(CampusFeed.LOCATIONS).map {Choice(it.name,it.name)}
                         "dayOfWeek"->java.time.DayOfWeek.entries.map {Choice(it.value.toString(),it.name.lowercase().replaceFirstChar {it.uppercase()})}
                         "year"->listOf("1","2","3","4").map {Choice(it,"Year $it")}
+                        "kind"->listOf(Choice("CLASS","Add or replace a class"),Choice("CANCEL","Cancel a recurring class"))
+                        "baseCourseId"->state.values<TimetableEntry>(CampusFeed.TIMETABLE).distinctBy {it.courseId}.map {Choice(it.courseId,it.courseName,it.courseId)}
                         else->listOf("A","B").map {Choice(it,"Section $it")}
                     }
                     SelectField(when(field) {"vendorId"->"Kitchen operator";"driverId"->"Driver";"canteenId"->"Canteen";"routeId"->"Route";"dayOfWeek"->"Day";else->label},values[field].orEmpty(),choices,{values=values+(field to it)},allowNone=field=="department"&&kind==DataKind.CALENDAR)
@@ -110,10 +115,10 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
                     val context=androidx.compose.ui.platform.LocalContext.current
                     val minute=values[field]?.toIntOrNull()?:540
                     OutlinedButton(onClick={android.app.TimePickerDialog(context,{_,h,m->values=values+(field to (h*60+m).toString())},minute/60,minute%60,false).show()},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("${if(field=="startMinute") "Starts" else "Ends"}: ${clockTime(minute)}")}
-                } else if(field=="date") {
+                } else if(field in listOf("date","effectiveFrom","effectiveTo")) {
                     val context=androidx.compose.ui.platform.LocalContext.current
                     val date=runCatching {java.time.LocalDate.parse(values[field])}.getOrDefault(java.time.LocalDate.now(com.sachinkanna.civora.data.model.CampusPolicy.zone))
-                    OutlinedButton(onClick={android.app.DatePickerDialog(context,{_,y,m,d->values=values+(field to java.time.LocalDate.of(y,m+1,d).toString())},date.year,date.monthValue-1,date.dayOfMonth).show()},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("Date: ${values[field]?:"Choose date"}")}
+                    OutlinedButton(onClick={android.app.DatePickerDialog(context,{_,y,m,d->values=values+(field to java.time.LocalDate.of(y,m+1,d).toString())},date.year,date.monthValue-1,date.dayOfMonth).show()},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)) {Text("${label}: ${values[field]?:"Choose date"}")}
                 } else if(field=="stops") StopEditor(values[field].orEmpty()) {values=values+(field to it)}
                 else
                     OutlinedTextField(
@@ -142,7 +147,7 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
                             "id" to entityId,
                         )
                     kind.fields.forEach { data[it] = values[it].orEmpty() }
-                    if(kind==DataKind.TIMETABLE) {data["startMinute"]=values["startMinute"]?.toIntOrNull()?:540;data["endMinute"]=values["endMinute"]?.toIntOrNull()?:600}
+                    if(kind in listOf(DataKind.TIMETABLE,DataKind.OVERRIDE)) {data["startMinute"]=values["startMinute"]?.toIntOrNull()?:540;data["endMinute"]=values["endMinute"]?.toIntOrNull()?:600}
                     kind.fields
                         .filter { it in listOf("open","available","holiday") }
                         .forEach { data[it] = values[it] == "true" }
@@ -188,6 +193,7 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
                 when (kind) {
                     DataKind.DEPARTMENT -> CampusFeed.DEPARTMENTS
                     DataKind.CALENDAR -> CampusFeed.CALENDAR
+                    DataKind.OVERRIDE -> CampusFeed.ACADEMIC_OVERRIDES
                     DataKind.CANTEEN -> CampusFeed.CANTEENS
                     DataKind.MENU -> CampusFeed.MENU
                     DataKind.BUS -> CampusFeed.BUSES
@@ -199,6 +205,7 @@ fun CampusDataScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: 
             state.feed(feed).items.forEach { entry ->
                 Text(
                     when (entry) {
+                        is com.sachinkanna.civora.data.model.AcademicOverride -> "${entry.date} · ${entry.courseName.ifBlank {entry.reason}}"
                         is com.sachinkanna.civora.data.model.Canteen -> entry.name
                         is com.sachinkanna.civora.data.model.Bus -> entry.name
                         is com.sachinkanna.civora.data.model.BusRoute ->
@@ -227,9 +234,10 @@ private fun editorRecord(entry: Any): Pair<String,Map<String,String>>?=when(entr
     is BusRoute->entry.id to mapOf("name" to entry.name,"contactPhone" to entry.contactPhone,"stops" to entry.stops.joinToString("\n") {"${it.name}|${it.latitude}|${it.longitude}"})
     is Department->entry.id to mapOf("name" to entry.name,"code" to entry.code)
     is CalendarDay->entry.id to mapOf("title" to entry.title,"date" to entry.date,"department" to entry.department,"holiday" to entry.holiday.toString())
+    is AcademicOverride->entry.id to mapOf("date" to entry.date,"kind" to entry.kind,"baseCourseId" to entry.baseCourseId,"courseId" to entry.courseId,"courseName" to entry.courseName,"faculty" to entry.faculty,"department" to entry.department,"year" to entry.year,"section" to entry.section,"startMinute" to entry.startMinute.toString(),"endMinute" to entry.endMinute.toString(),"room" to entry.room,"reason" to entry.reason)
     is Club->entry.id to mapOf("name" to entry.name,"description" to entry.description,"category" to entry.category)
     is CampusLocation->entry.id to mapOf("name" to entry.name,"description" to entry.description,"category" to entry.category,"latitude" to entry.latitude.toString(),"longitude" to entry.longitude.toString())
-    is TimetableEntry->entry.id to mapOf("courseId" to entry.courseId,"courseName" to entry.courseName,"faculty" to entry.faculty,"department" to entry.department,"year" to entry.year,"section" to entry.section,"dayOfWeek" to entry.dayOfWeek.toString(),"startMinute" to entry.startMinute.toString(),"endMinute" to entry.endMinute.toString(),"room" to entry.room)
+    is TimetableEntry->entry.id to mapOf("courseId" to entry.courseId,"courseName" to entry.courseName,"faculty" to entry.faculty,"department" to entry.department,"year" to entry.year,"section" to entry.section,"dayOfWeek" to entry.dayOfWeek.toString(),"startMinute" to entry.startMinute.toString(),"endMinute" to entry.endMinute.toString(),"room" to entry.room,"effectiveFrom" to entry.effectiveFrom,"effectiveTo" to entry.effectiveTo)
     else->null
 }
 

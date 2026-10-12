@@ -14,7 +14,20 @@ data class TimetableEntry(
     val department: String = "",
     val year: String = "",
     val section: String = "",
+    val effectiveFrom: String = "2000-01-01",
+    val effectiveTo: String = "2099-12-31",
 )
+
+data class AcademicOverride(val id:String="",val date:String="",val kind:String="CLASS",val baseCourseId:String="",val courseId:String="",val courseName:String="",val faculty:String="",val startMinute:Int=0,val endMinute:Int=0,val room:String="",val department:String="",val year:String="",val section:String="",val reason:String="")
+
+fun resolvedClassesForDate(entries:List<TimetableEntry>,overrides:List<AcademicOverride>,date:LocalDate):List<TimetableEntry>{
+    val active=entries.filter {it.dayOfWeek==date.dayOfWeek.value&&runCatching {date>=LocalDate.parse(it.effectiveFrom)&&date<=LocalDate.parse(it.effectiveTo)}.getOrDefault(false)}
+    val day=overrides.filter {it.date==date.toString()}
+    val replaced=day.map {it.baseCourseId}.filter {it.isNotBlank()}.toSet()
+    return (active.filter {it.courseId !in replaced}+day.filter {it.kind=="CLASS"}.map {TimetableEntry("override_${it.id}",it.courseId,it.courseName,it.faculty,date.dayOfWeek.value,it.startMinute,it.endMinute,it.room,it.department,it.year,it.section,date.toString(),date.toString())}).sortedBy {it.startMinute}
+}
+
+fun nextAcademicClass(entries:List<TimetableEntry>,overrides:List<AcademicOverride>,now:LocalDateTime,holidays:Set<LocalDate>):ScheduledClass?=(0..14).flatMap {offset->val date=now.toLocalDate().plusDays(offset.toLong());if(date in holidays)emptyList() else resolvedClassesForDate(entries,overrides,date).map {ScheduledClass(it,date.atStartOfDay().plusMinutes(it.startMinute.toLong()))}}.filter {it.date>=now}.minByOrNull {it.date}
 
 data class ScheduledClass(val entry: TimetableEntry, val date: LocalDateTime)
 

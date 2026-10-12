@@ -1,0 +1,37 @@
+{
+  "17-admin-report-assignment.png": {
+    "capturedAt": "2026-10-11T11:40:30.167851+00:00",
+    "sha256": "192ca5465d492456270c9565baa85da1f098da4405d2a6a1f5255db9e183e5a3",
+    "candidateSourceCommit": "d7db5a7c29f9095bf9c134743726088371b454d2",
+    "deviceKind": "emulator",
+    "packageVerified": "com.sachinkanna.civora"
+  },
+  "18-maintenance-assigned-work.png": {
+    "capturedAt": "2026-10-11T11:41:35.133913+00:00",
+    "sha256": "76f5e624369ea9812c373fabe48537bc3ecd707ee4a5d542923a1c582cedbdfd",
+    "candidateSourceCommit": "d7db5a7c29f9095bf9c134743726088371b454d2",
+    "deviceKind": "emulator",
+    "packageVerified": "com.sachinkanna.civora"
+  },
+  "19-maintenance-completion-evidence.png": {
+    "capturedAt": "2026-10-11T11:58:00.652740+00:00",
+    "sha256": "2c944d5459fa9b9a0d406bbc5db32466bbcbe23a444bc99c4ef7371c6a911fc9",
+    "candidateSourceCommit": "d7db5a7c29f9095bf9c134743726088371b454d2",
+    "deviceKind": "emulator",
+    "packageVerified": "com.sachinkanna.civora"
+  },
+  "20-maintenance-review-history.png": {
+    "capturedAt": "2026-10-11T11:58:39.885346+00:00",
+    "sha256": "736a89d6536c71154148829e94988a7b30afa8d45303d0ad9b9685800db971aa",
+    "candidateSourceCommit": "d7db5a7c29f9095bf9c134743726088371b454d2",
+    "deviceKind": "emulator",
+    "packageVerified": "com.sachinkanna.civora"
+  },
+  "21-admin-resolved-report.png": {
+    "capturedAt": "2026-10-11T12:06:50.494346+00:00",
+    "sha256": "4332f395c370a1d738c38b6234232da5fc2fa84a45632957df057e9643a0e3e7",
+    "candidateSourceCommit": "d7db5a7c29f9095bf9c134743726088371b454d2",
+    "deviceKind": "emulator",
+    "packageVerified": "com.sachinkanna.civora"
+  }
+}

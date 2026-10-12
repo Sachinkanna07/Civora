@@ -53,7 +53,7 @@ Record deployment commit, regions, function revisions, rule/index versions and r
 
 For failed orders, inspect deterministic order ID, current status and callable error code. Retry the original request identity; never create a second order to mask an ambiguous response. For registration failures inspect capacity/deadline/cancellation and transaction logs. For GPS inspect consent, active assignment, foreground notification, timestamps and backoff. For push inspect profile preference, permission, device tokens and trigger logs without logging tokens. For media inspect ownership, JPEG validation and Storage rules. For deletion inspect `accountDeletions` status and Functions errors; retry the idempotent worker in a trusted maintenance operation rather than deleting the request receipt.
 
-Staff deletion, institutional admission policy, comprehensive retention and live monitoring verification remain release blockers. This document is a runbook, not evidence those tasks passed.
+Staff transfer/deletion, institutional authorization, approved retention/deletion activation and live monitoring verification remain release blockers. Verified-email admission is implemented and tested locally. This document is a runbook, not evidence that the live release gates passed.
 
 ## Immediate access suspension
 

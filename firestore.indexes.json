@@ -1,6 +1,16 @@
 {
     "indexes":  [
                     {
+                        "collectionGroup": "academicOverrides",
+                        "queryScope": "COLLECTION",
+                        "fields": [
+                            {"fieldPath":"department","order":"ASCENDING"},
+                            {"fieldPath":"year","order":"ASCENDING"},
+                            {"fieldPath":"section","order":"ASCENDING"},
+                            {"fieldPath":"date","order":"ASCENDING"}
+                        ]
+                    },
+                    {
                         "collectionGroup":  "announcements",
                         "queryScope":  "COLLECTION",
                         "fields":  [
@@ -175,6 +185,30 @@
                                            "order":  "DESCENDING"
                                        }
                                    ]
+                    },
+                    {
+                        "collectionGroup": "foodOrders",
+                        "queryScope": "COLLECTION",
+                        "fields": [
+                            {"fieldPath": "vendorId", "order": "ASCENDING"},
+                            {"fieldPath": "status", "order": "ASCENDING"}
+                        ]
+                    },
+                    {
+                        "collectionGroup": "campusReports",
+                        "queryScope": "COLLECTION",
+                        "fields": [
+                            {"fieldPath": "assignedTo", "order": "ASCENDING"},
+                            {"fieldPath": "status", "order": "ASCENDING"}
+                        ]
+                    },
+                    {
+                        "collectionGroup": "activeTrips",
+                        "queryScope": "COLLECTION",
+                        "fields": [
+                            {"fieldPath": "driverId", "order": "ASCENDING"},
+                            {"fieldPath": "active", "order": "ASCENDING"}
+                        ]
                     },
                     {
                         "collectionGroup":  "users",

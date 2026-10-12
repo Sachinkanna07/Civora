@@ -60,6 +60,7 @@ fun RoleDashboard(
                 page == "Publish" -> ContentEditor(profile, state, vm, back)
                 page == "Attendance" -> AttendanceScreen(state, vm, back)
                 page == "Invite" -> InvitationsScreen(state, vm, back)
+                page == "Staff access" -> StaffAccessScreen(state,vm,back)
                 page == "Campus data" -> CampusDataScreen(state, vm, back)
                 page == "Transport" -> TransportScreen(profile, state, vm, back)
                 else ->
@@ -84,13 +85,14 @@ fun RoleDashboard(
                                 TextButton(onClick={vm.action("getOperationsSummary",emptyMap(),"Operations summary refreshed")},enabled=!state.busy) {Text("Refresh operations summary")}
                             }
                             feedState(CampusFeed.REPORTS, state, vm, "No pending campus reports.")
-                            items(listOf("Reports", "Invite", "Admission", "Campus data", "Transport", "Mess setup")) { action
+                            items(listOf("Reports", "Invite", "Staff access", "Admission", "Campus data", "Transport", "Mess setup")) { action
                                 ->
                                 CampusCard(
                                     action,
                                     when (action) {
                                         "Reports" -> "Assign issues and record resolutions"
                                         "Invite" -> "Provision campus staff and operators"
+                                        "Staff access" -> "Transfer responsibilities and deactivate staff access"
                                         "Admission" -> "Review institution-approved email exceptions"
                                         "Mess setup" -> "Manage halls, meal windows and entitlements"
                                         "Campus data" ->
