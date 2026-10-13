@@ -7,17 +7,22 @@ import com.sachinkanna.civora.data.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class AuthUiState(
     val loading: Boolean = true,
     val profile: UserProfile? = null,
     val error: String? = null,
+    val notice: String? = null,
+    val verificationCooldownSeconds: Int = 0,
 )
 
 class AuthViewModel(private val repository: AuthRepository = AuthRepository()) : ViewModel() {
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
+    private var verificationCooldownJob: Job? = null
 
     init {
         sessionCheck()
@@ -43,16 +48,59 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
     }
 
     fun refreshProfile() = viewModelScope.launch {
-        runCatching { repository.fetchCurrentProfile() }
-            .onSuccess { _state.value = _state.value.copy(profile = it) }
+        runCatching { repository.refreshVerifiedProfile() }
+            .onSuccess { _state.value = _state.value.copy(profile = it); if(it!=null)registerPush() }
             .onFailure {
                 _state.value = _state.value.copy(error = "Profile could not be refreshed.")
             }
     }
 
+    fun sendVerificationEmail() = viewModelScope.launch {
+        if(_state.value.loading||_state.value.verificationCooldownSeconds>0)return@launch
+        _state.value=_state.value.copy(loading=true,error=null,notice=null)
+        runCatching {repository.sendVerificationEmail()}
+            .onSuccess {
+                _state.value=_state.value.copy(loading=false,notice="Verification email sent. Check your inbox and spam folder.")
+                startVerificationCooldown()
+            }
+            .onFailure {_state.value=_state.value.copy(loading=false,error="Verification email could not be sent. Wait a moment and try again.")}
+    }
+    private fun startVerificationCooldown() {
+        verificationCooldownJob?.cancel()
+        verificationCooldownJob=viewModelScope.launch {
+            for(seconds in 60 downTo 1){
+                _state.value=_state.value.copy(verificationCooldownSeconds=seconds)
+                delay(1000)
+            }
+            _state.value=_state.value.copy(verificationCooldownSeconds=0)
+        }
+    }
+    fun checkAdmission() = viewModelScope.launch {
+        if(_state.value.loading)return@launch
+        _state.value=_state.value.copy(loading=true,error=null,notice=null)
+        runCatching {repository.refreshVerifiedProfile()}
+            .onSuccess {_state.value=AuthUiState(false,it,notice=if(it?.emailVerified==false)"Your email is still unverified. Complete the link in your inbox first."else null); if(it!=null)registerPush()}
+            .onFailure {_state.value=_state.value.copy(loading=false,error="Campus access could not be checked. Check your connection and retry.")}
+    }
+    fun deletePendingAccount(password: String) = viewModelScope.launch {
+        if(_state.value.loading)return@launch
+        _state.value=_state.value.copy(loading=true,error=null)
+        runCatching {repository.deleteAccount(password)}
+            .onSuccess {_state.value=AuthUiState(false)}
+            .onFailure {_state.value=_state.value.copy(loading=false,error="Account deletion failed. Confirm your password and retry.")}
+    }
+
     fun logout() {
-        repository.logout()
-        _state.value = AuthUiState(false)
+        val context=com.google.firebase.FirebaseApp.getInstance().applicationContext
+        com.sachinkanna.civora.data.datasource.TripTrackingService.stop(context)
+        context.getSystemService(android.app.NotificationManager::class.java).cancelAll()
+        com.sachinkanna.civora.DiagnosticsPreferences.update(context,false)
+        com.sachinkanna.civora.AppNavigation.destination.value=null
+        viewModelScope.launch {
+            runCatching { kotlinx.coroutines.withTimeout(3000) { repository.unregisterDevice() } }
+            repository.logout()
+            _state.value = AuthUiState(false)
+        }
     }
 
     private fun submit(action: suspend () -> UserProfile) = viewModelScope.launch {
@@ -68,9 +116,18 @@ class AuthViewModel(private val repository: AuthRepository = AuthRepository()) :
 
     private fun registerPush() {
         // FCM has no local emulator. Demo credentials cannot register real push tokens.
-        if (com.google.firebase.FirebaseApp.getInstance().options.projectId == "demo-civora") return
+        if (com.google.firebase.FirebaseApp.getInstance().options.projectId?.startsWith("demo-") == true) return
+        val profile=_state.value.profile ?: return
+        val context=com.google.firebase.FirebaseApp.getInstance().applicationContext
+        val permitted=android.os.Build.VERSION.SDK_INT<33||androidx.core.content.ContextCompat.checkSelfPermission(context,android.Manifest.permission.POST_NOTIFICATIONS)==android.content.pm.PackageManager.PERMISSION_GRANTED
+        if(!profile.campusAdmitted||!profile.notificationsEnabled||!permitted) {
+            viewModelScope.launch {runCatching {kotlinx.coroutines.withTimeout(3000){repository.unregisterDevice()}}}
+            return
+        }
         runCatching {
-            com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnSuccessListener {
+            val messaging=com.google.firebase.messaging.FirebaseMessaging.getInstance()
+            messaging.isAutoInitEnabled=true
+            messaging.token.addOnSuccessListener {
                 com.sachinkanna.civora.data.datasource.CivoraMessagingService.registerDevice(it)
             }.addOnFailureListener {
                 android.util.Log.w("CivoraPush", "Push registration unavailable", it)

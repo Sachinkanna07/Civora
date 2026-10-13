@@ -1,12 +1,14 @@
-package com.sachinkanna.civora
+﻿package com.sachinkanna.civora
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.sachinkanna.civora.navigation.CivoraNavGraph
@@ -15,53 +17,28 @@ import com.sachinkanna.civora.ui.theme.CivoraTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val emulatorHost = getString(R.string.firebase_emulator_host)
-        if (
-            (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0 &&
-                emulatorHost.isNotBlank()
-        ) {
-            // Activity recreation (for example a theme change) retains ViewModels.
-            // Replacing their Firebase app would disconnect existing listeners.
-            if (com.google.firebase.FirebaseApp.getApps(this).firstOrNull()?.options?.projectId != "demo-civora") {
-                com.google.firebase.FirebaseApp.getApps(this).firstOrNull()?.delete()
-                com.google.firebase.FirebaseApp.initializeApp(
-                    this,
-                    com.google.firebase.FirebaseOptions.Builder()
-                        .setProjectId("demo-civora")
-                        .setApplicationId("1:123456789:android:c1a0c1a0c1a0c1a0")
-                        // Syntactically valid placeholders satisfy SDK validation; all data
-                        // services below are redirected to the isolated demo emulators.
-                        .setApiKey("AIza" + "0".repeat(35))
-                        .build(),
-                )
-                com.google.firebase.auth.FirebaseAuth.getInstance().useEmulator(emulatorHost, 9099)
-                com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .useEmulator(emulatorHost, 8080)
-                com.google.firebase.functions.FirebaseFunctions.getInstance()
-                    .useEmulator(emulatorHost, 5001)
-            }
-        }
+        FirebaseEnvironment.configure(this)
         enableEdgeToEdge()
+        handleDestination(intent)
         setContent {
-            CivoraTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    if (com.google.firebase.FirebaseApp.getApps(this).isEmpty()) {
-                        androidx.compose.foundation.layout.Column(
-                            Modifier.padding(innerPadding).padding(24.dp)
-                        ) {
-                            androidx.compose.material3.Text(
-                                "Civora",
-                                style =
-                                    androidx.compose.material3.MaterialTheme.typography
-                                        .headlineLarge,
-                            )
-                            androidx.compose.material3.Text(
-                                "Campus connection is not configured for this build. Contact your campus administrator."
-                            )
-                        }
-                    } else CivoraNavGraph(modifier = Modifier.padding(innerPadding))
+            val mode by ThemePreferences.mode.collectAsState()
+            val dark=when(mode){"DARK"->true;"LIGHT"->false;else->isSystemInDarkTheme()}
+            CivoraTheme(darkTheme=dark) {
+                Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
+                    if(com.google.firebase.FirebaseApp.getApps(this).isEmpty()) Column(Modifier.safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                        Text("Civora",style=MaterialTheme.typography.headlineLarge)
+                        Text("Campus connection is not configured. Contact your campus administrator.")
+                    } else CivoraNavGraph()
                 }
             }
         }
+    }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent);setIntent(intent);handleDestination(intent) }
+    private fun handleDestination(intent: Intent?) {
+        val expected=intent?.getStringExtra("civora_user")
+        if(expected!=null&&runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid }.getOrNull()!=expected)return
+        val data=intent?.data
+        AppNavigation.destination.value=if(data?.scheme=="civora") AppNavigation.route(data.host,data.lastPathSegment)
+            else AppNavigation.route(intent?.getStringExtra("civora_destination"),intent?.getStringExtra("civora_entity"))
     }
 }

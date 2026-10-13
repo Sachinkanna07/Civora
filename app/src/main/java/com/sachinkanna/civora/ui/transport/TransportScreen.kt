@@ -21,6 +21,7 @@ fun TransportScreen(
     back: () -> Unit,
 ) {
     var routeId by rememberSaveable { mutableStateOf(profile.routeId) }
+    var stopName by rememberSaveable {mutableStateOf(profile.boardingStop)}
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -29,15 +30,16 @@ fun TransportScreen(
         }
     }
     val routes = state.values<BusRoute>(CampusFeed.ROUTES)
-    val route = routes.find { it.id == routeId } ?: routes.firstOrNull()
+    val route = routes.find { it.id == routeId }
     val trip = state.values<ActiveTrip>(CampusFeed.TRIPS).find { it.routeId == route?.id }
     val context = LocalContext.current
     CampusPage("Campus transport", back) {
         feedState(CampusFeed.ROUTES, state, vm, "No routes published yet.")
+        item {Text("Tracking preferences only. Request official route and boarding changes through the campus transport office.",style=MaterialTheme.typography.bodySmall)}
         item {
             FlowRow {
                 routes.forEach { r ->
-                    FilterChip(route?.id == r.id, { routeId = r.id }, label = { Text(r.name) })
+                    FilterChip(route?.id == r.id, { routeId = r.id; stopName="" }, label = { Text(r.name) })
                 }
             }
         }
@@ -47,7 +49,7 @@ fun TransportScreen(
                 if (trip == null) "No active trip on this route."
                 else
                     trip.location?.let {
-                        "${if(isLocationFresh(it,now))"Live location" else "Stale location"}\nLast updated ${dateTime(it.updatedAt)}"
+                        "${if(it.simulated) "Demo GPS (simulated)" else if(isLocationFresh(it,now))"Live location" else "Stale location"}\nLast updated ${dateTime(it.updatedAt)}"
                     } ?: "Driver has started the trip. Waiting for location.",
                 "TRIP STATUS",
             )
@@ -64,18 +66,17 @@ fun TransportScreen(
                 }
             }
         }
-        items(route?.stops.orEmpty()) { stop ->
-            CampusCard(
-                stop.name,
-                etaMinutes(trip?.location, stop, now)?.let {
-                    "Approx. $it min | distance estimate at 20 km/h"
-                } ?: "ETA unavailable",
-                "BUS STOP",
-            )
+        route?.let {r->
+            item {SelectField("Boarding stop",stopName,r.stops.map {Choice(it.name,it.name)},{stopName=it})}
+            val stop=selectedBoardingStop(r,stopName)
+            item {CampusCard(stop?.name?:"Choose your boarding stop",stop?.let {routeEtaMinutes(trip?.location,r,it,now)?.let {eta->"Route estimate: $eta minutes to your stop"}?:"ETA unavailable · GPS stale, off route, or stop already passed"}?:"Select the stop where you board this route.")}
+            if(profile.role==UserRole.STUDENT)item {Button(onClick={vm.saveProfile(mapOf("routeId" to r.id,"boardingStop" to stopName)) {}},enabled=stop!=null&&!state.busy) {Text("Save preferred route and stop")}}
+            items(r.stops,key={it.name}) {s->CampusCard(s.name,if(s.name==stopName)"Your boarding stop"else"Route stop") {stopName=s.name}}
+            items(state.values<TransportUpdate>(CampusFeed.TRANSPORT_UPDATES).filter {it.routeId==r.id}.take(5),key={it.id}) {u->CampusCard(u.busName,"${u.note}${if(u.delayMinutes>0) " · ${u.delayMinutes} min delay" else ""}\n${dateTime(u.createdAt)}",u.kind)}
         }
         item {
             Text(
-                "ETAs are rough distance estimates and do not include road traffic or stop delays.",
+                "Estimates follow the ordered stops at an assumed 20 km/h with one minute per intermediate stop. Road geometry, traffic and actual dwell times can change arrivals.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }

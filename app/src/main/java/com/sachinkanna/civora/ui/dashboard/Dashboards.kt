@@ -16,7 +16,10 @@ import com.sachinkanna.civora.ui.components.*
 import com.sachinkanna.civora.ui.driver.DriverScreen
 import com.sachinkanna.civora.ui.faculty.*
 import com.sachinkanna.civora.ui.food.FoodScreen
+import com.sachinkanna.civora.ui.mess.MessScreen
 import com.sachinkanna.civora.ui.reports.ReportsScreen
+import com.sachinkanna.civora.ui.reports.MaintenanceScreen
+import androidx.compose.ui.platform.LocalContext
 import com.sachinkanna.civora.ui.transport.TransportScreen
 import com.sachinkanna.civora.viewmodel.*
 
@@ -24,23 +27,40 @@ import com.sachinkanna.civora.viewmodel.*
 fun RoleDashboard(
     profile: UserProfile,
     onLogout: () -> Unit,
-    vm: CampusWorkspaceViewModel = viewModel(),
+    onRefreshProfile: () -> Unit = {},
+    vm: CampusWorkspaceViewModel = viewModel(factory = CampusWorkspaceViewModel.factory(LocalContext.current)),
 ) {
-    LaunchedEffect(profile) { vm.connect(profile) }
+    LaunchedEffect(profile) { vm.connect(profile); if(profile.role==UserRole.ADMIN)vm.action("getOperationsSummary",emptyMap(),"Operations summary refreshed") }
     val state by vm.state.collectAsStateWithLifecycle()
+    var metrics by remember {mutableStateOf<Map<String,Any?>>(emptyMap())}
+    LaunchedEffect(state.lastResult) {if(state.lastAction=="getOperationsSummary")metrics=state.lastResult}
     var page by rememberSaveable { mutableStateOf<String?>(null) }
+    val destination by com.sachinkanna.civora.AppNavigation.destination.collectAsStateWithLifecycle()
+    LaunchedEffect(destination) {
+        destination?.let {
+            if(it.startsWith("Report:") && profile.role in listOf(UserRole.ADMIN,UserRole.MAINTENANCE))page=it
+            com.sachinkanna.civora.AppNavigation.destination.value=null
+        }
+    }
+    val logout: () -> Unit = { vm.disconnect(); onLogout() }
     val back: () -> Unit = { page = null }
     BackHandler(page != null) { back() }
-    Column(Modifier.fillMaxSize()) {
-        ActionMessage(state, vm)
-        Box(Modifier.weight(1f)) {
+    CompositionLocalProvider(LocalAccountAction provides if(page == "Settings") null else ({page = "Settings"})) {
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
             when {
-                profile.role == UserRole.VENDOR -> FoodScreen(state, vm, onLogout, vendor = true)
-                profile.role == UserRole.DRIVER -> DriverScreen(state, vm, onLogout)
-                page == "Reports" -> ReportsScreen(state, vm, back, admin = true)
+                page == "Settings" -> com.sachinkanna.civora.ui.profile.ProfileScreen(profile,state,vm,onRefreshProfile,logout,{page=it},back)
+                profile.role == UserRole.MESS -> MessScreen(profile,state,vm,logout)
+                profile.role == UserRole.MAINTENANCE -> MaintenanceScreen(profile,state,vm,logout,page?.substringAfter(':')?.takeIf {page?.startsWith("Report:")==true},back)
+                profile.role == UserRole.VENDOR -> FoodScreen(state, vm, logout, vendor = true)
+                profile.role == UserRole.DRIVER -> DriverScreen(state, vm, logout)
+                page == "Mess setup" -> MessSetupScreen(state,vm,back)
+                page == "Admission" -> AdmissionsScreen(state,vm,back)
+                page == "Reports" || page?.startsWith("Report:")==true -> ReportsScreen(state, vm, back, admin = true, reportId=page?.substringAfter(':')?.takeIf {page?.startsWith("Report:")==true})
                 page == "Publish" -> ContentEditor(profile, state, vm, back)
                 page == "Attendance" -> AttendanceScreen(state, vm, back)
                 page == "Invite" -> InvitationsScreen(state, vm, back)
+                page == "Staff access" -> StaffAccessScreen(state,vm,back)
                 page == "Campus data" -> CampusDataScreen(state, vm, back)
                 page == "Transport" -> TransportScreen(profile, state, vm, back)
                 else ->
@@ -60,19 +80,21 @@ fun RoleDashboard(
                             }
                         if (profile.role == UserRole.ADMIN) {
                             item {
-                                CampusCard(
-                                    "Campus operations",
-                                    "${state.values<CampusReport>(CampusFeed.REPORTS).count {it.status!=ReportStatus.RESOLVED&&it.status!=ReportStatus.REJECTED}} open reports | ${state.values<ActiveTrip>(CampusFeed.TRIPS).size} active trips\n${state.values<Canteen>(CampusFeed.CANTEENS).size} canteens | ${state.values<CampusReport>(CampusFeed.REPORTS).count {it.category==ReportCategory.SAFETY&&it.status!=ReportStatus.RESOLVED&&it.status!=ReportStatus.REJECTED}} active safety incidents",
-                                )
+                                if(metrics.isNotEmpty())CampusCard("Campus operations","${metrics["openReports"]} open reports · ${metrics["reviewRequired"]} awaiting review\n${metrics["activeTrips"]} active trips · ${metrics["openOrders"]} kitchen orders\n${metrics["urgentReports"]} active safety reports · ${metrics["meals24h"]} meals in the past 24 hours")
+                                else SectionTitle("Campus operations","Refresh to load server counts.")
+                                TextButton(onClick={vm.action("getOperationsSummary",emptyMap(),"Operations summary refreshed")},enabled=!state.busy) {Text("Refresh operations summary")}
                             }
                             feedState(CampusFeed.REPORTS, state, vm, "No pending campus reports.")
-                            items(listOf("Reports", "Invite", "Campus data", "Transport")) { action
+                            items(listOf("Reports", "Invite", "Staff access", "Admission", "Campus data", "Transport", "Mess setup")) { action
                                 ->
                                 CampusCard(
                                     action,
                                     when (action) {
                                         "Reports" -> "Assign issues and record resolutions"
-                                        "Invite" -> "Provision faculty, vendor and driver accounts"
+                                        "Invite" -> "Provision campus staff and operators"
+                                        "Staff access" -> "Transfer responsibilities and deactivate staff access"
+                                        "Admission" -> "Review institution-approved email exceptions"
+                                        "Mess setup" -> "Manage halls, meal windows and entitlements"
                                         "Campus data" ->
                                             "Manage schedules, venues, menus and bus assignments"
                                         else -> "Review routes and active trips"
@@ -96,9 +118,11 @@ fun RoleDashboard(
                             }
                         }
                         feedState(CampusFeed.EVENTS, state, vm, "No upcoming campus events.")
-                        item { TextButton(onClick = onLogout) { Text("Log out") } }
+                        item { TextButton(onClick = logout) { Text("Log out") } }
                     }
             }
         }
+        Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) {ActionMessage(state,vm)}
+    }
     }
 }

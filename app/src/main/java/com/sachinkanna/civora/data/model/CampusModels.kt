@@ -12,6 +12,8 @@ data class Announcement(
     val authorName: String = "",
     val createdAt: Long = 0L,
     val expiresAt: Long? = null,
+    val imagePath: String = "",
+    val archived: Boolean = false,
 )
 
 data class CampusEvent(
@@ -30,4 +32,8 @@ data class CampusEvent(
     val createdBy: String = "",
     val clubId: String = "",
     val registeredCount: Int = 0,
+    val imagePath: String = "",
+    val archived: Boolean = false,
+    val cancelled: Boolean = false,
+    val registrationDeadline: Long? = null,
 )

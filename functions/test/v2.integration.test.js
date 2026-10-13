@@ -1,0 +1,63 @@
+require('./local-environment');
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const enabled=!!process.env.FIREBASE_AUTH_EMULATOR_HOST&&!!process.env.FIRESTORE_EMULATOR_HOST;
+test('v2 kitchen rush, maintenance ownership, meal eligibility/replay and transport updates',{skip:!enabled},async()=>{
+  const {initializeApp}=require('firebase-admin/app'),{getAuth}=require('firebase-admin/auth'),{getFirestore,Timestamp}=require('firebase-admin/firestore');
+  const projectId=process.env.GCLOUD_PROJECT||'demo-civora',host=process.env.CIVORA_FUNCTIONS_EMULATOR_HOST||'127.0.0.1:5001';
+  const app=initializeApp({projectId},'v2-integration'),auth=getAuth(app),db=getFirestore(app),suffix=`v2_${Date.now()}`;
+  async function actor(role,label=role){const uid=`${label}_${suffix}`,email=`${uid}@kpriet.ac.in`,password='EmulatorOnly123!';await auth.createUser({uid,email,password,emailVerified:true});await auth.setCustomUserClaims(uid,{role});await db.doc(`users/${uid}`).set({uid,email,name:label,role,department:'CSE',year:'2',section:'A',routeId:'',profileImage:'',notificationsEnabled:false,membershipGranted:true,membershipEmail:email.toLowerCase(),createdAt:Timestamp.now()});if(role==='maintenance')await db.doc(`staffDirectory/${uid}`).set({uid,name:label,role,department:'Facilities',team:'Repairs',active:true});const response=await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-key`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true})});return {uid,token:(await response.json()).idToken};}
+  const student=await actor('student'),admin=await actor('admin'),vendor=await actor('vendor'),otherVendor=await actor('vendor','otherVendor'),worker=await actor('maintenance'),otherWorker=await actor('maintenance','otherWorker'),mess=await actor('mess'),otherMess=await actor('mess','otherMess'),driver=await actor('driver'),otherDriver=await actor('driver','otherDriver');
+  async function call(user,name,data){const response=await fetch(`http://${host}/${projectId}/us-central1/${name}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${user.token}`},body:JSON.stringify({data}),signal:AbortSignal.timeout(120000)});const body=await response.text();try{return JSON.parse(body);}catch(_){throw Error(`${name}: HTTP ${response.status}: ${body.slice(0,200)}`);}}
+  async function success(user,name,data){const result=await call(user,name,data);assert.equal(result.error,undefined,JSON.stringify(result));return result.result;}
+  async function denied(user,name,data){assert.ok((await call(user,name,data)).error,`${name} unexpectedly succeeded`);}
+  const canteenId=`canteen_${suffix}`,menuId=`menu_${suffix}`;
+  await db.doc(`canteens/${canteenId}`).set({name:'Rush kitchen',vendorId:vendor.uid,open:true});await db.doc(`menuItems/${menuId}`).set({name:'Meal',canteenId,pricePaise:5000,available:true});
+  await denied(otherVendor,'setCanteenOperations',{canteenId,open:true,paused:true,preparationMinutes:null});
+  await success(vendor,'setCanteenOperations',{canteenId,open:true,paused:true,preparationMinutes:15});
+  const cart=i=>({canteenId,requestId:`rush_${suffix}_${i}`,items:[{menuItemId:menuId,quantity:1}]});
+  await denied(student,'placeFoodOrder',cart(0));
+  await success(vendor,'setCanteenOperations',{canteenId,open:true,paused:false,preparationMinutes:15});
+  await denied(student,'placeFoodOrder',{...cart(99),expectedTotalPaise:1});
+  const orders=[];for(let i=0;i<20;i++)orders.push(await success(student,'placeFoodOrder',cart(i)));
+  assert.equal((await db.collection('foodOrders').where('vendorId','==',vendor.uid).where('status','==','PLACED').count().get()).data().count,20);
+  assert.equal((await success(student,'placeFoodOrder',cart(0))).orderId,orders[0].orderId);
+  for(const status of ['ACCEPTED','PREPARING','READY','COMPLETED'])await success(vendor,'updateFoodOrder',{orderId:orders[0].orderId,status});
+  await denied(otherVendor,'updateFoodOrder',{orderId:orders[1].orderId,status:'ACCEPTED'});
+  await success(vendor,'setMenuAvailability',{menuItemId:menuId,available:false});await denied(student,'placeFoodOrder',cart(21));
+  await success(vendor,'setCanteenOperations',{canteenId,open:false,paused:false,preparationMinutes:null});await denied(student,'placeFoodOrder',cart(22));
+  const report=await success(student,'submitReport',{requestId:suffix,title:'Broken classroom fan',description:'Fan has stopped working',category:'ELECTRICAL',location:'Room 204'});
+  await denied(worker,'updateReport',{reportId:report.reportId,status:'ASSIGNED',assignedTo:worker.uid});
+  await success(admin,'updateReport',{reportId:report.reportId,status:'ASSIGNED',assignedTo:worker.uid});
+  await denied(otherWorker,'updateAssignedWork',{reportId:report.reportId,status:'ACCEPTED'});
+  for(const status of ['ACCEPTED','IN_PROGRESS'])await success(worker,'updateAssignedWork',{reportId:report.reportId,status});
+  await success(worker,'updateAssignedWork',{reportId:report.reportId,status:'NOTE',note:'Electrical inspection completed'});
+  await denied(worker,'updateAssignedWork',{reportId:report.reportId,status:'RESOLVED',note:'Self approval'});
+  await denied(worker,'updateAssignedWork',{reportId:report.reportId,status:'REVIEW_REQUIRED'});
+  await success(worker,'updateAssignedWork',{reportId:report.reportId,status:'REVIEW_REQUIRED',note:'Fan repaired; please review'});
+  await success(admin,'updateReport',{reportId:report.reportId,status:'RESOLVED',resolutionNote:'Repair reviewed'});
+  await denied(worker,'updateAssignedWork',{reportId:report.reportId,status:'NOTE',note:'Reopen'});
+  assert.ok((await db.collection(`campusReports/${report.reportId}/history`).get()).size>=6);
+  const hall=await success(admin,'manageMess',{kind:'hall',name:'Test mess',operatorId:mess.uid,open:true});
+  await denied(student,'getMealPass',{messId:hall.id});
+  await success(admin,'manageMess',{kind:'entitlement',messId:hall.id,userId:student.uid,active:true});
+  const period=await success(admin,'manageMess',{kind:'period',messId:hall.id,label:'Lunch',opensAt:Date.now()-60000,closesAt:Date.now()+3600000});
+  const pass=await success(student,'getMealPass',{messId:hall.id}),token=pass.payload.split(':')[2],scan={periodId:period.id,userId:student.uid,token};
+  await denied(otherMess,'checkInMeal',scan);await denied(mess,'checkInMeal',{...scan,token:'forged'});
+  await success(mess,'checkInMeal',scan);await denied(mess,'checkInMeal',scan);
+  assert.equal((await success(mess,'getMessSummary',{periodId:period.id})).count,1);await denied(otherMess,'getMessSummary',{periodId:period.id});
+  await success(admin,'manageMess',{kind:'entitlement',messId:hall.id,userId:student.uid,active:false});await denied(student,'getMealPass',{messId:hall.id});
+  const busId=`bus_${suffix}`;await db.doc(`buses/${busId}`).set({name:'Test bus',routeId:`route_${suffix}`,driverId:driver.uid});
+  const update={busId,requestId:suffix,kind:'DELAY',delayMinutes:10,note:'Traffic delay'};
+  await denied(otherDriver,'reportTransportIssue',update);await success(driver,'reportTransportIssue',update);await success(driver,'reportTransportIssue',update);
+  assert.equal((await db.collection('transportUpdates').where('busId','==',busId).get()).size,1);
+  const gps={busId,latitude:13.0,longitude:80.0,accuracy:20,capturedAt:Date.now(),locationSource:'SIMULATED'};
+  await denied(driver,'publishTripLocation',gps);
+  await success(driver,'manageTrip',{busId,active:true});
+  await denied(otherDriver,'publishTripLocation',{...gps,capturedAt:Date.now()});
+  await denied(driver,'publishTripLocation',{...gps,capturedAt:Date.now()-180000});
+  await denied(driver,'publishTripLocation',{...gps,capturedAt:Date.now(),accuracy:201});
+  await success(driver,'publishTripLocation',{...gps,capturedAt:Date.now()});
+  assert.equal((await db.doc(`activeTrips/${busId}`).get()).data().locationSource,'SIMULATED');
+  await success(driver,'manageTrip',{busId,active:false});
+  await denied(driver,'publishTripLocation',{...gps,capturedAt:Date.now()});
+});

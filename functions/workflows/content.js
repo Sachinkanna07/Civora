@@ -1,5 +1,5 @@
 const {onCall,HttpsError,db,serverTime,requireAuth,text,id,fail,record,Timestamp,getAuth,randomBytes,foodTransitions,reportTransitions,canTransition,hasCapacity,priceOrder} = require('../shared');
-exports.publishCampusContent = onCall(async req => {
+exports.publishCampusContent = onCall('publishCampusContent',async req => {
   const {uid, role} = requireAuth(req, ['faculty','admin']); const kind = req.data.kind; const d = req.data;
   const profile = await db.doc(`users/${uid}`).get(); const department = role === 'faculty' ? profile.data()?.department || '' : text(d.department || '', 80, false);
   if (role === 'faculty' && !department) fail('Faculty department must be assigned by an administrator.');
@@ -11,20 +11,37 @@ exports.publishCampusContent = onCall(async req => {
     if (role !== 'admin' && (priority === 'urgent' || category === 'Urgent')) throw new HttpsError('permission-denied','Only administrators can publish emergency notices.');
     content = {title: text(d.title,120), body: text(d.body,4000), category, priority, department, audience: 'students', authorId: uid, authorName: profile.data()?.name || '', createdAt: serverTime(), expiresAt: d.expiresAt ? Timestamp.fromMillis(d.expiresAt) : null};
   } else if (kind === 'event') {
-    if (!Number.isSafeInteger(d.startTime) || !Number.isSafeInteger(d.endTime) || d.endTime <= d.startTime || d.startTime <= Date.now() || !Number.isInteger(d.capacity) || d.capacity < 0 || d.capacity > 100000) fail('Check event times and capacity.');
-    content = {title: text(d.title,120), description: text(d.body,4000), category: text(d.category || 'Campus',30), department, venue: text(d.venue,200), organizer: profile.data()?.name || '', createdBy: uid, startTime: Timestamp.fromMillis(d.startTime), endTime: Timestamp.fromMillis(d.endTime), capacity: d.capacity, registrationEnabled: true, registeredCount: 0, imageUrl: text(d.imageUrl || '',2000,false), createdAt: serverTime(), clubId: text(d.clubId || '',128,false)};
+    if (!Number.isSafeInteger(d.startTime) || !Number.isSafeInteger(d.endTime) || d.endTime <= d.startTime || !Number.isInteger(d.capacity) || d.capacity < 0 || d.capacity > 100000) fail('Check event times and capacity.');
+    if(d.registrationDeadline && (!Number.isSafeInteger(d.registrationDeadline)||d.registrationDeadline>d.startTime))fail('Registration deadline must be before the event starts.');
+    content = {title: text(d.title,120), description: text(d.body,4000), category: text(d.category || 'Campus',30), department, venue: text(d.venue,200), organizer: profile.data()?.name || '', createdBy: uid, startTime: Timestamp.fromMillis(d.startTime), endTime: Timestamp.fromMillis(d.endTime), capacity: d.capacity, registrationEnabled: true, registeredCount: 0, imageUrl: text(d.imageUrl || '',2000,false), createdAt: serverTime(), clubId: text(d.clubId || '',128,false), registrationDeadline:d.registrationDeadline?Timestamp.fromMillis(d.registrationDeadline):null};
   } else fail('Invalid content type.');
+  content.imagePath=await require('../attachments').validateAttachment(d.imagePath||'',`campusImages/${uid}/`);
   if(content.imageUrl && !/^https:\/\//.test(content.imageUrl))fail('Image must be an HTTPS URL.');
   const collection = kind === 'event' ? 'events' : 'announcements'; const ref = d.id ? db.doc(`${collection}/${id(d.id)}`) : db.collection(collection).doc();
   await db.runTransaction(async tx => { const old = await tx.get(ref);
+    if(kind==='event'&&d.startTime<=Date.now()&&(!old.exists||old.data().startTime.toMillis()!==d.startTime))fail('Choose a future start time for a new or rescheduled event.');
     if (old.exists) {
       const author = kind === 'event' ? old.data().createdBy : old.data().authorId;
       if (role !== 'admin' && author !== uid) throw new HttpsError('permission-denied','You do not own this content.');
       if (kind === 'event' && d.capacity !== 0 && d.capacity < (old.data().registeredCount || 0)) fail('Capacity cannot be less than registrations.');
-      if (kind === 'event') { content.registeredCount = old.data().registeredCount || 0; content.createdBy = old.data().createdBy; }
+      if (kind === 'event') { content.registeredCount = old.data().registeredCount || 0; content.createdBy = old.data().createdBy; content.cancelled=old.data().cancelled===true;content.registrationEnabled=!content.cancelled; }
       else { content.authorId = old.data().authorId; content.authorName = old.data().authorName; }
+      content.archived=old.data().archived===true;
       content.createdAt = old.data().createdAt;
     }
     tx.set(ref, content);
   }); return {id: ref.id};
+});
+
+exports.setContentStatus = onCall('setContentStatus',async req=>{
+  const {uid,role}=requireAuth(req,['faculty','admin']);const {kind,action}=req.data;
+  if(!['event','announcement'].includes(kind)||!['ARCHIVE','RESTORE','CANCEL'].includes(action)||action==='CANCEL'&&kind!=='event')fail('Choose a supported content action.');
+  const ref=db.doc(`${kind==='event'?'events':'announcements'}/${id(req.data.id)}`);
+  await db.runTransaction(async tx=>{
+    const old=await tx.get(ref);if(!old.exists)fail('Content no longer exists.');const content=old.data();
+    if(role!=='admin'&&(kind==='event'?content.createdBy:content.authorId)!==uid)throw new HttpsError('permission-denied','You do not own this content.');
+    if(action==='RESTORE'&&content.cancelled)fail('Cancelled events cannot be restored. Publish a new event.');
+    tx.update(ref,action==='CANCEL'?{cancelled:true,registrationEnabled:false,updatedAt:serverTime()}:{archived:action==='ARCHIVE',updatedAt:serverTime()});
+    tx.set(db.collection('operationsAudit').doc(),{actor:uid,collection:ref.parent.id,entityId:ref.id,action,createdAt:serverTime()});
+  });return {success:true};
 });

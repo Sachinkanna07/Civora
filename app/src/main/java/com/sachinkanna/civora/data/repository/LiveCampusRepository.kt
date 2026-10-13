@@ -26,9 +26,10 @@ enum class CampusFeed {
     BUSES,
     TRIPS,
     LOCATIONS,
+    STUDENTS, STAFF, DEPARTMENTS, CALENDAR, ACADEMIC_OVERRIDES, TRANSPORT_UPDATES, MESS_HALLS, MEAL_PERIODS, ENTITLEMENTS, MEAL_CHECKINS,
 }
 
-data class Ticket(val id: String, val eventId: String, val token: String, val attended: Boolean)
+data class Ticket(val id: String, val eventId: String, val token: String, val attended: Boolean, val userName: String="", val eventTitle: String="")
 
 interface CampusGateway {
     fun observe(feed: CampusFeed, profile: UserProfile): Flow<List<Any>>
@@ -107,7 +108,7 @@ class LiveCampusRepository : CampusGateway {
                     .orderBy("createdAt", Query.Direction.DESCENDING)
             CampusFeed.REPORTS ->
                 db.collection("campusReports")
-                    .let { if (staff) it else it.whereEqualTo("createdBy", p.uid) }
+                    .let { if (staff) it else it.whereEqualTo(if(p.role == UserRole.MAINTENANCE) "assignedTo" else "createdBy", p.uid) }
                     .orderBy("createdAt", Query.Direction.DESCENDING)
             CampusFeed.ACTIVITIES ->
                 db.collection("activities")
@@ -126,6 +127,16 @@ class LiveCampusRepository : CampusGateway {
                 }
             CampusFeed.TRIPS -> db.collection("activeTrips").whereEqualTo("active", true)
             CampusFeed.LOCATIONS -> db.collection("campusLocations").orderBy("name")
+            CampusFeed.STUDENTS -> db.collection("users").whereEqualTo("role","student").orderBy("name")
+            CampusFeed.STAFF -> db.collection("staffDirectory").orderBy("name")
+            CampusFeed.DEPARTMENTS -> db.collection("departments").orderBy("name")
+            CampusFeed.CALENDAR -> db.collection("academicCalendar").orderBy("date")
+            CampusFeed.ACADEMIC_OVERRIDES -> db.collection("academicOverrides").let {if(staff)it else it.whereEqualTo("department",p.department).whereEqualTo("year",p.year).whereIn("section",listOf("",p.section).distinct())}.orderBy("date")
+            CampusFeed.TRANSPORT_UPDATES -> db.collection("transportUpdates").orderBy("createdAt", Query.Direction.DESCENDING)
+            CampusFeed.MESS_HALLS -> db.collection("messHalls").let { if(p.role == UserRole.MESS) it.whereEqualTo("operatorId", p.uid) else it }
+            CampusFeed.MEAL_PERIODS -> db.collection("mealPeriods")
+            CampusFeed.ENTITLEMENTS -> db.collection("mealEntitlements").let { if(staff) it else it.whereEqualTo("userId", p.uid) }
+            CampusFeed.MEAL_CHECKINS -> db.collection("mealCheckIns").whereEqualTo(if(p.role == UserRole.MESS) "operatorId" else "userId", p.uid).orderBy("createdAt", Query.Direction.DESCENDING)
         }.limit(100)
     }
 
@@ -141,6 +152,8 @@ class LiveCampusRepository : CampusGateway {
                     d.getString("eventId").orEmpty(),
                     d.getString("token").orEmpty(),
                     d.getBoolean("attended") ?: false,
+                    d.getString("userName").orEmpty(),
+                    d.getString("eventTitle").orEmpty(),
                 )
             CampusFeed.CANTEENS -> d.toObject(Canteen::class.java)!!.copy(id = d.id)
             CampusFeed.MENU -> d.toObject(MenuItem::class.java)!!.copy(id = d.id)
@@ -150,7 +163,7 @@ class LiveCampusRepository : CampusGateway {
                     d.getString("userId").orEmpty(),
                     d.getString("canteenId").orEmpty(),
                     d.getString("token").orEmpty(),
-                    FoodOrderStatus.valueOf(d.getString("status") ?: "PLACED"),
+                    FoodOrderStatus.entries.find { it.name == d.getString("status") } ?: FoodOrderStatus.PLACED,
                     (d.get("items") as? List<Map<String, Any>>).orEmpty().map {
                         FoodOrderItem(
                             it["menuItemId"] as? String ?: "",
@@ -161,27 +174,37 @@ class LiveCampusRepository : CampusGateway {
                     },
                     d.getLong("totalPaise") ?: 0,
                     d.time("createdAt"),
+                    d.getString("paymentState") ?: "PAY_AT_COUNTER",
+                    d.getString("canteenName").orEmpty(),
+                    d.getLong("preparationMinutes")?.toInt(),
+                    d.time("updatedAt"),
                 )
             CampusFeed.REPORTS ->
                 CampusReport(
                     d.id,
                     d.getString("title").orEmpty(),
                     d.getString("description").orEmpty(),
-                    ReportCategory.valueOf(d.getString("category") ?: "OTHER"),
+                    ReportCategory.entries.find { it.name == d.getString("category") } ?: ReportCategory.OTHER,
                     d.getString("imageUrl").orEmpty(),
                     d.getString("location").orEmpty(),
                     d.getString("createdBy").orEmpty(),
                     d.time("createdAt"),
-                    ReportStatus.valueOf(d.getString("status") ?: "SUBMITTED"),
+                    ReportStatus.entries.find { it.name == d.getString("status") } ?: ReportStatus.SUBMITTED,
                     d.getString("assignedTo").orEmpty(),
                     d.getString("resolutionNote").orEmpty(),
+                    d.getString("imagePath").orEmpty(),
+                    d.getString("completionImagePath").orEmpty(),
+                    d.getString("assignedToName").orEmpty(),
+                    d.getString("progressNote").orEmpty(),
+                    d.getString("priority") ?: "normal",
+                    d.time("updatedAt"),
                 )
             CampusFeed.ACTIVITIES ->
                 CampusActivity(
                     d.id,
                     d.getString("title").orEmpty(),
                     d.getString("body").orEmpty(),
-                    ActivityType.valueOf(d.getString("type") ?: "NOTICE"),
+                    ActivityType.entries.find { it.name == d.getString("type") } ?: ActivityType.NOTICE,
                     d.getString("status").orEmpty(),
                     d.time("createdAt"),
                     destination(d),
@@ -192,7 +215,7 @@ class LiveCampusRepository : CampusGateway {
                     d.id,
                     d.getString("title").orEmpty(),
                     d.getString("body").orEmpty(),
-                    NotificationCategory.valueOf(d.getString("category") ?: "RELEVANT"),
+                    NotificationCategory.entries.find { it.name == d.getString("category") } ?: NotificationCategory.RELEVANT,
                     d.time("createdAt"),
                     d.getBoolean("read") ?: false,
                     destination(d),
@@ -214,10 +237,21 @@ class LiveCampusRepository : CampusGateway {
                             it.toDouble(),
                             (d.get("longitude") as? Number)?.toDouble() ?: 0.0,
                             d.time("locationUpdatedAt"),
+                            d.getString("locationSource") == "SIMULATED",
                         )
                     },
                 )
             CampusFeed.LOCATIONS -> d.toObject(CampusLocation::class.java)!!.copy(id = d.id)
+            CampusFeed.STUDENTS -> StaffMember(d.id,d.getString("name").orEmpty(),"student",d.getString("email").orEmpty())
+            CampusFeed.STAFF -> d.toObject(StaffMember::class.java)!!.copy(uid = d.id)
+            CampusFeed.DEPARTMENTS -> d.toObject(Department::class.java)!!.copy(id = d.id)
+            CampusFeed.CALENDAR -> d.toObject(CalendarDay::class.java)!!.copy(id = d.id)
+            CampusFeed.ACADEMIC_OVERRIDES -> d.toObject(AcademicOverride::class.java)!!.copy(id=d.id)
+            CampusFeed.TRANSPORT_UPDATES -> TransportUpdate(d.id,d.getString("busId").orEmpty(),d.getString("routeId").orEmpty(),d.getString("busName").orEmpty(),d.getString("kind").orEmpty(),(d.getLong("delayMinutes")?:0).toInt(),d.getString("note").orEmpty(),d.time("createdAt"))
+            CampusFeed.MESS_HALLS -> d.toObject(MessHall::class.java)!!.copy(id = d.id)
+            CampusFeed.MEAL_PERIODS -> MealPeriod(d.id,d.getString("messId").orEmpty(),d.getString("label").orEmpty(),d.time("opensAt"),d.time("closesAt"))
+            CampusFeed.ENTITLEMENTS -> d.toObject(MealEntitlement::class.java)!!.copy(id = d.id)
+            CampusFeed.MEAL_CHECKINS -> MealCheckIn(d.id,d.getString("periodId").orEmpty(),d.getString("messId").orEmpty(),d.getString("userId").orEmpty(),d.getString("label").orEmpty(),d.time("createdAt"))
         }
 
     private fun destination(d: DocumentSnapshot) =

@@ -2,7 +2,11 @@
 
 Everything on campus. One app.
 
-Civora is a native Android campus app connecting students, faculty, campus administrators, canteen vendors and bus drivers. It combines the next class, campus notices, events, orders and transport into a useful daily workspace.
+Civora is a native Android campus app connecting students, faculty, campus administrators, canteen vendors, mess operators, maintenance workers and bus drivers. It combines the next class, campus notices, events, orders and transport into a daily workspace.
+
+Production completion work is tracked in [the evidence tracker](docs/PRODUCTION_COMPLETION_TRACKER.md). The live Firestore API remains disabled and production readiness is not claimed. See [research](docs/PRODUCT_RESEARCH.md), [API contracts](docs/BACKEND_APIS.md), [release/rollback](docs/RELEASE_RUNBOOK.md) and [privacy draft](docs/PRIVACY_POLICY_DRAFT.md). Historical test/demo results below are not evidence for this branch's latest source.
+
+The configured target is KPRIET with campus time `Asia/Kolkata`. Protected access requires Firebase email verification and server-issued membership for exact `kpriet.ac.in` addresses or reviewed email-bound exceptions. Email domains never assign staff roles. Civora is independently developed; endorsement is unconfirmed. Civora-controlled support/privacy values remain configurable and unset. See [institution configuration and approvals](docs/INSTITUTION_CONFIGURATION.md). Proposed retention and production deletion remain inactive pending approval.
 
 ## What Civora solves
 
@@ -12,30 +16,36 @@ Campus information and operations are often split between notice boards, messagi
 
 | Role | Access |
 | --- | --- |
-| Student | Public email registration; campus discovery, tickets, food orders, reports, profile |
+| Student | Email registration, verification and admission; campus discovery, tickets, food orders, reports, profile |
 | Faculty | Administrator provisioning; department content, own events and attendance |
 | Admin | Trusted operator bootstrap; operations, invitations, reports and campus data |
 | Vendor | Administrator provisioning; assigned canteens, menus and order transitions |
 | Driver | Administrator provisioning; assigned bus, trip controls and foreground GPS |
+| Mess | Administrator provisioning; assigned meal periods, QR eligibility and consumption counts |
+| Maintenance | Administrator provisioning; assigned work, progress/photos and review requests |
 
 Privileged authorization comes from Firebase Auth custom claims, never a user-editable profile or signup selection.
 
 ## Core features
 
-- Today: next class, relevant active notice, registered upcoming event, latest trip and active food order.
-- Timetable: daily and weekly schedules, rooms, next class and free periods.
+- Today: next authoritative class, relevant active notice, registered upcoming event, latest trip and active food order.
+- Timetable: effective semester ranges, weekly schedules, date-specific replacement/cancellation overrides, rooms, next class and free periods.
 - Announcements: exact department matching, categories, priority, expiry and document detail.
 - Events: discovery, filters, registration/cancellation, My Events, transactional capacity and QR tickets.
 - Food: canteen menus, single-canteen cart, server-priced orders, pickup tokens, status and history; pay at counter.
 - Transport: routes/stops, assigned buses, active trip location, freshness and approximate ETA.
-- Reports: categories, optional location/image URL, status tracking and administrator assignment/resolution.
+- Reports: categories, optional location/private photo upload, assigned maintenance progress and administrator resolution.
+- Mess: separate eligibility, meal windows, expiring QR passes, duplicate prevention and operator summaries.
+- Staff lifecycle: administrator preview, named responsibility transfer, explicit confirmation, access disable, token revocation and an audit trail.
+- Private images: server-issued, expiring upload permits and a cumulative per-user daily budget before immutable JPEG Storage writes.
+- Release preparation: API 36, R8/resource optimization, environment-only signing, opt-in Crashlytics and production callable App Check. Live activation and signing remain separate gates.
 - Discover: search over loaded campus content; structured clubs with follow/unfollow and related events.
 - Inbox and activity: private durable history, unread notifications, links to affected entities and FCM delivery architecture.
 - Campus locations: searchable places and external directions, without a Maps SDK key.
 
 ## Student experience
 
-Bottom navigation is Today, Discover, Action, Activity and You. Complete department, year, section and bus route in You to personalize the daily overview. Missing campus data appears as an empty state; production screens do not seed invented classes, orders or trips.
+Bottom navigation is Today, Services, Inbox and Profile. Complete department, year, section, route and boarding stop in Profile to personalize the daily overview. Missing campus data appears as an empty state; production screens do not seed invented classes, orders or trips. Staff workspaces expose Account and settings through the app bar.
 
 ## Architecture
 
@@ -57,7 +67,8 @@ Kotlin, Jetpack Compose, Material 3, Navigation Compose, ViewModel, StateFlow, c
 | events | title, description, category, department, venue, startTime/endTime, organizer, createdBy, capacity, registeredCount, registrationEnabled, imageUrl, clubId |
 | eventRegistrations | deterministic eventId_userId; userId, organizerId, random token, attended, createdAt |
 | eventAttendance | registration ID; eventId, userId, organizerId, checkedBy, createdAt |
-| timetables | courseId/name, faculty, dayOfWeek (ISO 1–7), startMinute/endMinute, room, department, year, section |
+| timetables | courseId/name, faculty, dayOfWeek (ISO 1–7), startMinute/endMinute, room, department, year, section, effectiveFrom/effectiveTo |
+| academicOverrides | authoritative date, CLASS/CANCEL kind, base course, cohort, room/faculty and reason |
 | canteens / menuItems | vendor assignment and opening; menu canteenId, pricePaise, availability |
 | foodOrders | userId_requestId; vendorId, canteenId, priced items, totalPaise, token, status, paymentState, timestamps |
 | buses / busRoutes | driverId, routeId; route name and embedded stops with coordinates |
@@ -66,7 +77,8 @@ Kotlin, Jetpack Compose, Material 3, Navigation Compose, ViewModel, StateFlow, c
 | activities / notifications | userId, title/body, type, status, destination, entityId, createdAt; inbox adds category/read |
 | clubs / clubFollowers | structured club metadata; deterministic clubId_userId follower record |
 | campusLocations | name, category, description, latitude/longitude |
-| roleAudit | trusted invitation actor, target, role and timestamp |
+| roleAudit | trusted invitation/deactivation actor, target, replacement, transferred counts and timestamp |
+| uploadPermits / uploadBudgets | server-issued path authorization and per-user daily image count; client reads/writes denied |
 
 Money uses integer paise. Backend timestamps use server timestamps; client time is used only for display and schedule calculations. Queries are limited to 100 rows (legacy registered-ID helper: 200); filters are scoped by user, assignment or academic details. Required composite indexes are in `firestore.indexes.json`. Campus-readable department information is not confidential; this deployment assumes one campus per Firebase project. See [security assumptions](docs/SECURITY.md) and [audit](docs/AUDIT.md).
 
@@ -75,9 +87,9 @@ Money uses integer paise. Backend timestamps use server timestamps; client time 
 1. Create/select your Firebase project, register Android package `com.sachinkanna.civora`, enable Email/Password Authentication and create Firestore.
 2. Place the downloaded configuration at `app/google-services.json` (ignored by Git). Without it, the app displays a configuration message instead of crashing.
 3. Install backend dependencies: `npm --prefix functions ci`.
-4. Sign in with Firebase CLI and deploy to the intended project: `npx firebase-tools deploy --project YOUR_PROJECT_ID --only firestore,functions`. Functions use `us-central1`; billing may be needed for deployment.
+4. Follow the [release runbook](docs/RELEASE_RUNBOOK.md) to review regions, billing, attestation, backups and migrations before an authorized deployment of Firestore, Storage and Functions. Functions currently use `us-central1`.
 5. Register the first administrator as a normal user, then run `node functions/scripts/bootstrap-admin.js ADMIN_UID` with trusted Application Default Credentials and `GCLOUD_PROJECT` pointing to the project. Sign out/in to refresh claims. Never embed operator credentials in Android.
-6. Use the administrator workspace to invite faculty/vendors/drivers and populate campus content, schedules, canteens, menus, routes and bus assignments. Send generated account setup links through your institution's trusted channel.
+6. Use the administrator workspace to invite faculty, vendors, drivers, mess operators and maintenance workers and populate campus content, schedules, canteens, menus, routes and bus assignments. Send generated account setup links through your institution's trusted channel.
 
 For existing data, back up the database, pause registration writes and run `functions/scripts/migrate.js` with trusted credentials before switching rules. Do not promote legacy self-selected roles to claims. Review migration output and orphan registrations before reopening writes.
 
@@ -88,7 +100,7 @@ Open in Android Studio with Android SDK 36.1 installed and use the Gradle wrappe
 For local Firebase without real credentials:
 
 ```sh
-npx firebase-tools emulators:start --project demo-civora --only auth,firestore,functions
+npx -y firebase-tools@latest emulators:start --project demo-civora --only auth,firestore,functions,storage
 ./gradlew assembleDebug -Pcivora.emulatorHost=10.0.2.2
 ```
 
@@ -96,9 +108,9 @@ The emulator host flag is honored only in debug builds. Android Emulator reaches
 
 ## Required manual configuration
 
-MANUAL SETUP REQUIRED: connect the Firebase project and deploy as above, bootstrap the verified administrator, then enter real campus data. Configure Android App Check attestation and enforce callable protection as part of your release policy; it is not enabled blindly in this prototype. FCM needs the Android Firebase configuration, working Google Play services and notification permission on Android 13+. The inbox remains available without push permission. No Google Maps key is required for external directions.
+MANUAL SETUP REQUIRED: configure the approved Firebase project, bootstrap the verified administrator and enter real campus data. Production callables require App Check in source; configure Android Play Integrity and signing fingerprints and verify attestation before deployment. Direct Firestore/Storage enforcement requires project configuration. FCM needs the Android Firebase configuration, working Google Play services and notification permission on Android 13+. The inbox remains available without push permission. No Google Maps key is required for external directions.
 
-GPS device validation: assign a driver to a bus/route, sign in, grant location permission, start the trip and keep the driver screen open. Check timestamps from a student account. Denying permission or leaving the screen pauses sharing; ending the trip clears active availability. Debug builds accept emulator mock locations; release builds reject them. Writes are throttled to 15 seconds and stale locations do not produce ETA.
+GPS device validation: assign a driver to a bus/route, sign in, grant location permission and start the trip. The driver explicitly starts a foreground location service with a visible notification and stop action. Validate screen-off behavior and timestamps from a student account on a moving physical device. Denying permission pauses sharing; ending the trip clears active availability. Debug builds accept emulator mock locations; release builds reject them. Writes are throttled to 15 seconds and stale locations do not produce ETA. Real background GPS and battery behavior remain unverified.
 
 ## Testing
 
@@ -111,15 +123,16 @@ npx firebase-tools emulators:exec --project demo-civora --only auth,firestore,fu
 
 The plain Node command runs policy tests and skips emulator checks when emulator environment variables are absent. The emulator command exercises rules and authenticated callable workflows, including racing for the final event seat, ticket replay rejection, authoritative menu pricing, report transitions and driver ownership. Android tests cover roles/registration, filters, timetable gaps/next class, status transitions, ETA and fake-backed ViewModel recovery/cart behavior. Instrumentation requires a connected Android device: `./gradlew connectedDebugAndroidTest`.
 
-## Screenshots
+## Runtime evidence
 
-Verified product screenshots are not yet included. Capture Today, Discover, ticket, vendor, driver and admin screens from a configured Android device; do not represent mockups as runtime screenshots.
+Actual emulator captures, their capture manifest and the demo recording live under `demo/final`. They use fictional local-emulator accounts and simulated GPS where stated. They do not establish physical-device, live-Firebase or institutional-pilot readiness.
 
-## Roadmap
+## Remaining release work
 
-- Embedded camera QR scanning (current attendance accepts a scanned/pasted ticket payload and validates it securely).
-- Image uploads (current optional images use HTTPS URLs), embedded map and institution identity admission.
-- Pagination beyond bounded recent feeds and background driver tracking with a foreground service.
-- Automated invitation email delivery and production App Check/rate limiting policy.
+- Obtain institutional controller/publisher, privacy, retention, support and pilot approvals.
+- Configure the approved live Firebase services, billing/budgets, App Check enforcement, monitoring and FCM, then execute live negative-permission checks.
+- Supply release signing through the documented secure environment and complete Play Console declarations.
+- Complete representative physical-device GPS, camera/optical QR, background, accessibility and network-loss validation.
+- Add automated invitation email delivery if the approved operational process requires it.
 
 No payment gateway, LMS, social feed or chatbot is included. Firestore cache supports browsing through temporary disconnection; sensitive actions need a connection. ETA is a distance-based approximation to a selected stop, not traffic-aware routing. Real push delivery, GPS accuracy and all role UI flows still require validation on a configured device.

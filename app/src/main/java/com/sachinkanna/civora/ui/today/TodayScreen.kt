@@ -19,18 +19,24 @@ fun TodayScreen(
     vm: CampusWorkspaceViewModel,
     open: (String) -> Unit,
 ) {
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    var now by remember { mutableStateOf(com.sachinkanna.civora.data.model.CampusPolicy.now()) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(60_000)
-            now = LocalDateTime.now()
+            now = com.sachinkanna.civora.data.model.CampusPolicy.now()
         }
     }
-    val next = nextClass(state.values<TimetableEntry>(CampusFeed.TIMETABLE), now)
+    val timetable=state.values<TimetableEntry>(CampusFeed.TIMETABLE)
+    val overrides=state.values<AcademicOverride>(CampusFeed.ACADEMIC_OVERRIDES)
+    val holidays=holidayDates(state.values<CalendarDay>(CampusFeed.CALENDAR),profile.department)
+    val todayClasses=resolvedClassesForDate(timetable,overrides,now.toLocalDate())
+    val current=if(now.toLocalDate() in holidays)null else currentClass(todayClasses,now)
+    val next = nextAcademicClass(timetable,overrides,now,holidays)
     val notice =
         state
             .values<Announcement>(CampusFeed.ANNOUNCEMENTS)
             .filter {
+                !it.archived &&
                 (it.expiresAt == null || it.expiresAt > System.currentTimeMillis()) &&
                     (it.department.isBlank() || it.department == profile.department)
             }
@@ -43,7 +49,7 @@ fun TodayScreen(
     val event =
         state
             .values<CampusEvent>(CampusFeed.EVENTS)
-            .filter { it.id in tickets && it.startTime >= System.currentTimeMillis() }
+            .filter { !it.cancelled && !it.archived && it.id in tickets && it.startTime >= System.currentTimeMillis() }
             .minByOrNull { it.startTime }
     val order = state.values<FoodOrder>(CampusFeed.ORDERS).firstOrNull { it.status.active }
     val route = state.values<BusRoute>(CampusFeed.ROUTES).find { it.id == profile.routeId }
@@ -72,49 +78,39 @@ fun TodayScreen(
             vm,
             "Your schedule will appear when your department, year and section are assigned.",
         )
-        item {
-            CampusCard(
-                next?.entry?.courseName ?: "No upcoming classes",
-                next?.let {
-                    "${it.date.dayOfWeek} | ${clockTime(it.entry.startMinute)}-${clockTime(it.entry.endMinute)}\n${it.entry.room} | ${it.entry.faculty}"
-                } ?: "Enjoy your free time. View your weekly timetable.",
-                "NEXT CLASS",
-            ) {
-                open("Timetable")
-            }
+        if(now.toLocalDate() in holidays)item {CampusCard("Campus holiday",state.values<CalendarDay>(CampusFeed.CALENDAR).filter {it.date==now.toLocalDate().toString()}.joinToString {it.title})}
+        current?.let {c->item {CampusCard(c.courseName,"Until ${clockTime(c.endMinute)} · ${c.room}\n${c.faculty}","In class") {open("Timetable")}}}
+        if(!state.feed(CampusFeed.TIMETABLE).loading)item {
+            CampusCard(next?.entry?.courseName?:"No upcoming classes",
+                next?.let { val minutes=java.time.Duration.between(now,it.date).toMinutes();"${if(it.date.toLocalDate()==now.toLocalDate()) "Starts in $minutes min" else "${it.date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }} · ${it.date.toLocalDate()}"} · ${clockTime(it.entry.startMinute)}\n${it.entry.room} · ${it.entry.faculty}" }?:"Check your weekly timetable or academic profile.","Next class") {open("Timetable")}
         }
-        feedState(CampusFeed.TRIPS, state, vm, "No active campus trips.")
+
         item {
             CampusCard(
                 route?.name ?: "Choose your bus route",
-                trip?.location?.let {
-                    "${route?.stops?.firstOrNull()?.let { stop -> etaMinutes(it,stop,System.currentTimeMillis()) }?.let { eta -> "Approx. $eta min to first stop" } ?: if(isLocationFresh(it,System.currentTimeMillis())) "Location available" else "Location is stale"} | Updated ${dateTime(it.updatedAt)}"
+                trip?.location?.let {location->
+                    val stop=selectedBoardingStop(route,profile.boardingStop)
+                    "${if(location.simulated) "Demo GPS · " else ""}${if(stop==null) "Choose a boarding stop to see your ETA" else routeEtaMinutes(location,route,stop,System.currentTimeMillis())?.let { "Route estimate: $it min to ${stop.name}" }?:"ETA unavailable · check route and GPS freshness"}\nUpdated ${dateTime(location.updatedAt)}"
                 } ?: "Live location is unavailable. Check routes and stops.",
                 "TRANSPORT",
             ) {
                 open("Bus")
             }
         }
-        feedState(CampusFeed.ANNOUNCEMENTS, state, vm, "No active campus notices.")
+
         notice?.let {
             item {
-                CampusCard(it.title, it.body.take(160), it.priority.uppercase()) { open("Notices") }
+                CampusCard(it.title, it.body.take(160), it.priority.uppercase()) { open("Notice:${it.id}") }
             }
         }
-        feedState(
-            CampusFeed.REGISTRATIONS,
-            state,
-            vm,
-            "Find an event in Discover and register to see it here.",
-        )
         event?.let {
             item {
                 CampusCard(it.title, "${dateTime(it.startTime)} | ${it.venue}", "YOUR NEXT EVENT") {
-                    open("Events")
+                    open("Event:${it.id}")
                 }
             }
         }
-        feedState(CampusFeed.ORDERS, state, vm, "No food orders yet.")
+
         order?.let {
             item {
                 CampusCard(
@@ -122,7 +118,7 @@ fun TodayScreen(
                     "${money(it.totalPaise)} | Pay at counter",
                     it.status.name,
                 ) {
-                    open("Food")
+                    open("Order:${it.id}")
                 }
             }
         }

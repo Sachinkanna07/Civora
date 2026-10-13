@@ -4,30 +4,41 @@ rules_version = '2';
 // Privileged role = server-issued custom claim; profile.role is never authority.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function authenticated() { return request.auth != null; }
+    function accessEnabled() { return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('accessDisabled',false) == false; }
+    function identity() { return request.auth != null && accessEnabled() && !exists(/databases/$(database)/documents/accountDeletions/$(request.auth.uid)); }
+    function admitted() { return request.auth.token.get('email_verified',false) == true && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('membershipGranted',false) == true && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('membershipEmail','') == request.auth.token.get('email','').lower(); }
+    function authenticated() { return identity() && admitted(); }
     function owner(uid) { return authenticated() && request.auth.uid == uid; }
-    function role(value) { return authenticated() && request.auth.token.get('role', 'student') == value; }
+    function role(value) { return authenticated() && request.auth.token.get('role', 'student') == value && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == value; }
     function admin() { return role('admin'); }
     function short(value, max) { return value is string && value.size() <= max; }
     function validUrl(value) { return short(value,2000) && (value == '' || value.matches('https://.*')); }
     function validUser(d) {
       return d.keys().hasAll(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt'])
-        && d.keys().hasOnly(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt'])
+        && d.keys().hasOnly(['uid','name','email','role','department','year','section','routeId','profileImage','notificationsEnabled','createdAt','boardingStop','themePreference','kitchenAlerts','accessDisabled','admissionException','admissionEmail','membershipGranted','membershipEmail','membershipGrantedAt'])
         && short(d.uid,128) && short(d.name,100) && d.name.size() >= 2
         && short(d.email,254) && d.email.matches('[^@ ]+@[^@ ]+\\.[^@ ]+')
-        && d.role in ['student','faculty','admin','vendor','driver']
+        && d.role in ['student','faculty','admin','vendor','driver','maintenance','mess']
         && short(d.department,80) && short(d.year,20) && short(d.section,20)
         && short(d.routeId,128) && validUrl(d.profileImage)
-        && d.notificationsEnabled is bool && d.createdAt is timestamp;
+        && d.notificationsEnabled is bool && d.createdAt is timestamp
+        && short(d.get('boardingStop',''),100)
+        && d.get('themePreference','SYSTEM') in ['SYSTEM','LIGHT','DARK']
+        && d.get('kitchenAlerts',true) is bool && d.get('accessDisabled',false) is bool
+        && d.get('admissionException',false) is bool && short(d.get('admissionEmail',''),254)
+        && d.get('membershipGranted',false) is bool && short(d.get('membershipEmail',''),254)
+        && d.get('membershipGrantedAt',request.time) is timestamp;
     }
     match /users/{uid} {
-      allow read: if owner(uid) || admin();
-      allow create: if owner(uid) && validUser(request.resource.data)
-        && request.resource.data.uid == uid && request.resource.data.role == 'student'
+      // Onboarding permits only own profile access, before campus admission.
+      allow get: if (identity() && request.auth.uid == uid) || admin();
+      allow list: if admin();
+      allow create: if identity() && request.auth.uid == uid && validUser(request.resource.data)
+        && request.resource.data.uid == uid && request.resource.data.role == 'student' && !request.resource.data.keys().hasAny(['accessDisabled','admissionException','admissionEmail','membershipGranted','membershipEmail','membershipGrantedAt'])
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.createdAt == request.time;
       allow update: if owner(uid) && validUser(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','department','year','section','routeId','profileImage','notificationsEnabled'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','department','year','section','routeId','profileImage','notificationsEnabled','boardingStop','themePreference','kitchenAlerts'])
         && (role('student') || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['department','year','section']));
     }
     function validDevice(d) { return d.keys().hasAll(['token','updatedAt']) && d.keys().hasOnly(['token','updatedAt']) && short(d.token,4096) && d.token.size() > 20 && d.updatedAt is timestamp; }
@@ -53,7 +64,21 @@ service cloud.firestore {
     match /foodOrders/{id} {
       allow read: if authenticated() && (resource.data.userId == request.auth.uid || admin() || (role('vendor') && resource.data.vendorId == request.auth.uid));
     }
-    match /campusReports/{id} { allow read: if authenticated() && (resource.data.createdBy == request.auth.uid || admin()); }
+    function reportReader(d) { return authenticated() && (d.createdBy == request.auth.uid || admin() || (role('maintenance') && d.assignedTo == request.auth.uid)); }
+    match /campusReports/{id} {
+      allow read: if reportReader(resource.data);
+      match /history/{entryId} { allow read: if reportReader(get(/databases/$(database)/documents/campusReports/$(id)).data); }
+    }
+    match /staffDirectory/{uid} { allow read: if admin() || owner(uid); }
+    match /departments/{id} { allow read: if authenticated(); }
+    match /academicCalendar/{id} { allow read: if authenticated(); }
+    match /academicOverrides/{id} { allow read: if authenticated(); }
+    match /transportUpdates/{id} { allow read: if authenticated(); }
+    match /messHalls/{id} { allow read: if authenticated(); }
+    match /mealPeriods/{id} { allow read: if authenticated(); }
+    match /mealEntitlements/{id} { allow read: if authenticated() && (resource.data.userId == request.auth.uid || admin()); }
+    match /mealCheckIns/{id} { allow read: if authenticated() && (resource.data.userId == request.auth.uid || admin() || (role('mess') && resource.data.operatorId == request.auth.uid)); }
+    match /operationsAudit/{id} { allow read: if admin(); }
     match /activities/{id} { allow read: if authenticated() && resource.data.userId == request.auth.uid; }
     function validNotification(d) {
       return d.keys().hasAll(['userId','title','body','type','status','destination','entityId','createdAt','category','read'])
@@ -83,13 +108,14 @@ service cloud.firestore {
     }
     function validTrip(d) {
       return d.keys().hasAll(['busId','routeId','driverId','active','startedAt','updatedAt','latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt'])
-        && d.keys().hasOnly(['busId','routeId','driverId','active','startedAt','updatedAt','endedAt','latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt'])
+        && d.keys().hasOnly(['busId','routeId','driverId','active','startedAt','updatedAt','endedAt','latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt','locationSource'])
         && short(d.busId,128) && short(d.routeId,128) && short(d.driverId,128)
         && d.active is bool && d.startedAt is timestamp && d.updatedAt is timestamp
         && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
         && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
         && d.accuracy is number && d.accuracy >= 0 && d.accuracy <= 200
         && d.locationUpdatedAt is timestamp && d.locationCapturedAt is timestamp
+        && d.get('locationSource','GPS') in ['GPS','SIMULATED']
         && d.locationCapturedAt <= request.time && d.locationCapturedAt >= request.time - duration.value(60,'s');
     }
     match /activeTrips/{id} {
@@ -97,7 +123,7 @@ service cloud.firestore {
       allow update: if role('driver') && resource.data.driverId == request.auth.uid && resource.data.active == true
         && get(/databases/$(database)/documents/buses/$(resource.data.busId)).data.driverId == request.auth.uid
         && validTrip(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['latitude','longitude','accuracy','locationUpdatedAt','locationCapturedAt','locationSource'])
         && request.resource.data.locationUpdatedAt == request.time
         && (!('locationUpdatedAt' in resource.data) || request.time >= resource.data.locationUpdatedAt + duration.value(14,'s'));
     }

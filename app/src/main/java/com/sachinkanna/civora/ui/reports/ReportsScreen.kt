@@ -20,16 +20,20 @@ fun ReportsScreen(
     admin: Boolean = false,
     reportId: String? = null,
 ) {
+    var selected by rememberSaveable(reportId) {mutableStateOf(reportId)}
+    var mode by rememberSaveable {mutableStateOf(if(reportId==null) "Report issue" else "Track reports")}
     var title by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
     var location by rememberSaveable { mutableStateOf("") }
     var image by rememberSaveable { mutableStateOf("") }
+    var photoBusy by remember { mutableStateOf(false) }
     var category by rememberSaveable { mutableStateOf(ReportCategory.OTHER) }
     var statusFilter by rememberSaveable { mutableStateOf<ReportStatus?>(null) }
     var categoryFilter by rememberSaveable { mutableStateOf<ReportCategory?>(null) }
     var requestId by rememberSaveable { mutableStateOf(java.util.UUID.randomUUID().toString()) }
-    CampusPage(if (admin) "Report queue" else "Campus reports", back) {
-        if (!admin && reportId == null) {
+    CampusPage(if (admin) "Report queue" else "Campus reports", {if(selected!=null)selected=null else back()}) {
+        if(!admin&&selected==null)item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {listOf("Report issue","Track reports").forEach {m->FilterChip(mode==m,{mode=m},label={Text(m)})}}}
+        if (!admin && selected == null && mode=="Report issue") {
             item {
                 Text("Report a campus issue", style = MaterialTheme.typography.titleLarge)
                 OutlinedTextField(
@@ -64,12 +68,10 @@ fun ReportsScreen(
                     label = { Text("Location (optional)") },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
-                    image,
-                    { image = it.take(2000) },
-                    label = { Text("Image HTTPS URL (optional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                PhotoAttachment(image, {
+                    image=""; requestId=java.util.UUID.randomUUID().toString()
+                    "reports/${com.google.firebase.auth.FirebaseAuth.getInstance().currentUser!!.uid}/$requestId/photo.jpg"
+                }, { image=it }, { photoBusy=it })
             }
             item {
                 Button(
@@ -81,11 +83,12 @@ fun ReportsScreen(
                                 "description" to description,
                                 "category" to category.name,
                                 "location" to location,
-                                "imageUrl" to image,
+                                "imagePath" to image,
                                 "requestId" to requestId,
                             ),
                             "Report submitted",
                         ) {
+                            mode="Track reports"
                             title = ""
                             description = ""
                             location = ""
@@ -94,17 +97,17 @@ fun ReportsScreen(
                         }
                     },
                     enabled =
-                        !state.busy &&
+                        !state.busy && !photoBusy &&
                             title.isNotBlank() &&
                             description.isNotBlank() &&
-                            (image.isBlank() || image.startsWith("https://")),
+                            true,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Submit report")
                 }
             }
         }
-        if (admin)
+        if (admin&&selected==null)
             item {
                 FlowRow {
                     FilterChip(
@@ -135,16 +138,19 @@ fun ReportsScreen(
                     }
                 }
             }
+        if(admin||mode=="Track reports"||selected!=null) {
         feedState(CampusFeed.REPORTS, state, vm, "No reports to show.")
         items(
             state.values<CampusReport>(CampusFeed.REPORTS).filter {
-                (reportId == null || it.id == reportId) &&
+                (selected == null || it.id == selected) &&
                     (statusFilter == null || it.status == statusFilter) &&
                     (categoryFilter == null || it.category == categoryFilter)
             },
             key = { it.id },
         ) { report ->
-            ReportCard(report, state, vm, admin)
+            if(selected==report.id)ReportCard(report, state, vm, admin)
+            else CampusCard(report.title,"${report.location.ifBlank { "Location not provided" }} · ${dateTime(report.createdAt)}",report.status.name) {selected=report.id}
+        }
         }
     }
 }
@@ -165,21 +171,15 @@ private fun ReportCard(
             Text(report.description)
             Text("${report.category} | ${report.location.ifBlank {"Location not provided"}}")
             Text(dateTime(report.createdAt))
-            if (report.imageUrl.isNotBlank())
-                coil.compose.AsyncImage(
-                    report.imageUrl,
-                    "Report image",
-                    Modifier.fillMaxWidth().height(180.dp),
-                )
+            if (report.imagePath.isNotBlank()) PrivateImage(report.imagePath,"Issue photo")
+            if (report.completionImagePath.isNotBlank()) PrivateImage(report.completionImagePath,"Completion evidence")
             if (report.resolutionNote.isNotBlank()) Text("Resolution: ${report.resolutionNote}")
-            if (report.assignedTo.isNotBlank()) Text("Assigned to: ${report.assignedTo}")
+            if (report.assignedTo.isNotBlank()) Text("Assigned to: ${report.assignedToName.ifBlank { "Campus maintenance" }}")
+            if (report.progressNote.isNotBlank()) Text("Progress: ${report.progressNote}")
+            ReportHistory(report.id)
             if (admin) {
-                OutlinedTextField(
-                    assignee,
-                    { assignee = it.take(128) },
-                    label = { Text("Assignee UID / team") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                SelectField("Maintenance staff", assignee,
+                    state.values<StaffMember>(CampusFeed.STAFF).filter { it.role=="maintenance" && it.active }.map { Choice(it.uid,it.name,"${it.department} · ${it.team}") }, { assignee=it })
                 OutlinedTextField(
                     note,
                     { note = it.take(2000) },

@@ -1,0 +1,30 @@
+{
+  "score": 4,
+  "summary": "Local source/rules audit covers verified admission, protected membership, role/ownership checks, stale privileged claims, workflow races, staff transfer and permit-gated private media. Live deployment/attestation and external policy/configuration gates prevent production security certification.",
+  "findings": [
+    {
+      "check": "Authentication and storage abuse",
+      "severity": "moderate",
+      "issue": "Server-issued upload permits, a daily per-user image budget and exact callable quotas are implemented. Firebase Authentication signup abuse controls, orphan cleanup and project-wide cost budgets remain external or incomplete.",
+      "recommendation": "Configure approved Authentication protections, budget alerts and orphan cleanup before a pilot. Validate permits with production App Check and Storage enforcement."
+    },
+    {
+      "check": "Operational account lifecycle",
+      "severity": "minor",
+      "issue": "Suspension, student deletion and same-role staff responsibility transfer/deactivation are implemented and locally tested. Production deletion is intentionally disabled pending approved retention and activation.",
+      "recommendation": "Validate the staff workflow with approved operators and current production records. Use the trusted suspension workflow and obtain policy approval before activating production deletion."
+    },
+    {
+      "check": "Deployment and monitoring evidence",
+      "severity": "minor",
+      "issue": "The read-only production Firestore request returned SERVICE_DISABLED. Live rules/indexes, App Check, FCM and Crashlytics receipt remain unverified.",
+      "recommendation": "Execute the reviewed release runbook after explicit billing, regions, deployment and signing authorization; validate live negative-permission and attestation cases."
+    },
+    {
+      "check": "Institutional authorization",
+      "severity": "minor",
+      "issue": "Exact-domain verified-email admission and email-bound exceptions are implemented. An email domain does not prove student status or authorize institutional processing.",
+      "recommendation": "Keep roles server-provisioned and exceptions tied to institution-approved references. Confirm controller/publisher, Civora contacts, current campus records and authorization before a live pilot."
+    }
+  ]
+}
