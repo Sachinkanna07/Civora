@@ -1,8 +1,8 @@
 ﻿# Civora production completion tracker
 
-Updated: 12 October 2026 (Asia/Kolkata). Evidence describes executed checks. Local tests do not establish live readiness.
+Updated: 13 October 2026 (Asia/Kolkata). Evidence describes executed checks. Local tests do not establish live readiness.
 
-Current base HEAD: fd0b068. Remote master independently verified/fetched: 0f09980. Branch: feat/civora-production-completion. The current engineering pass remains an uncommitted review candidate.
+Current base HEAD: ab162e8. Remote master independently verified/fetched: 0f09980. Branch: feat/civora-production-completion. This tracker update and the physical-device validation record are part of the 13 October 2026 review commit.
 
 Statuses: NOT_STARTED, IN_PROGRESS, IMPLEMENTED, TESTED, VERIFIED, BLOCKED. TESTED covers bounded checks; VERIFIED requires the stated actual workflow and environment.
 
@@ -30,6 +30,10 @@ Statuses: NOT_STARTED, IN_PROGRESS, IMPLEMENTED, TESTED, VERIFIED, BLOCKED. TEST
 
 ## Executed evidence
 
+- 13 October verification: `gradlew.bat test assembleDebug lintDebug --max-workers=2` passed with exit code 0 in 2m 26s. The debug unit/build/lint checks are locally verified; this does not prove physical-device or production behavior.
+- 13 October backend verification: `npm --prefix functions test` exited 0. 27 tests were discovered, 8 passed, 0 failed, and 19 were intentionally skipped because emulator-backed integration tests require the isolated Firebase emulator suite. No skipped test is reported as passed.
+- Physical-device coverage remains BLOCKED: no authorized handset was connected; only the existing emulator was observed. See `docs/PHYSICAL_DEVICE_VALIDATION.md` for the non-destructive evidence and exact remaining manual gates.
+
 - 12 October Android clean build: 27 unit tests passed; debug APK, instrumentation APK, optimized unsigned release APK and AAB built. `lintDebug` and `lintVitalRelease` passed. The full command completed in 7m 48s.
 - 12 October combined backend suite: 27 tests executed against local Auth/Firestore/Functions/Storage; 26 passed initially and one new staff-transfer fixture failed because it omitted the active admin directory record. After correcting only that fixture, both staff lifecycle tests passed. All 27 behaviors therefore have passing executed evidence, with the complete pre-fix output retained locally in `docs/evidence/backend-current.log`.
 - Bounded stress: 50 orders, concurrency five, 40,671 ms including fixture setup; eight identical concurrent checkout requests return the same order/token. This is emulator correctness evidence, not production throughput.
@@ -44,4 +48,4 @@ Raw logs and emulator exports under docs/evidence are ignored. CLI logs may cont
 
 ## Exit gate
 
-**NOT READY FOR PRODUCTION.** Staff responsibility transfer/deactivation/deletion, academic effective-date overrides and daily upload authorization limits are now implemented and locally tested. Physical-device journeys and live verification remain incomplete. Institutional authorization, operator contacts, retention/deletion activation, Firebase billing/regions/deployment, signing and publication remain separate approval gates. No automated production deletion is active.
+**NOT READY FOR PRODUCTION.** Staff responsibility transfer/deactivation/deletion, academic effective-date overrides and daily upload authorization limits are implemented and locally tested. Android build/unit/lint checks and the non-emulator backend checks passed on 13 October 2026; emulator-backed backend cases remain skipped in this direct run. Physical-device journeys and live verification remain incomplete. Institutional authorization, operator contacts, retention/deletion activation, Firebase billing/regions/deployment, signing and publication remain separate approval gates. No automated production deletion is active. Review commit reference: `ab162e8` plus the commit created with this tracker update.
