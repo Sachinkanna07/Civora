@@ -1,6 +1,14 @@
-# Civora
+<div align="center">
 
-Everything on campus. One app.
+# 🏫 Civora
+
+### Everything on campus. One app.
+
+**Students** · **Faculty** · **Campus teams**
+
+[Features](#core-features) · [Architecture](#architecture) · [Setup](#firebase-setup) · [Testing](#testing)
+
+</div>
 
 Civora is a native Android campus app connecting students, faculty, campus administrators, canteen vendors and bus drivers. It combines the next class, campus notices, events, orders and transport into a useful daily workspace.
 
