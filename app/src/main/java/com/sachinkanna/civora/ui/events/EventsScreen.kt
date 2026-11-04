@@ -36,7 +36,7 @@ fun EventsScreen(
         if (selected != null) {
             detailLoading = true
             try {
-                detail = EventsRepository().get(selected!!)
+                detail = EventsRepository().get(selected!!);if(detail==null)error=true
             } catch (e: Exception) {
                 error = true
             } finally {
@@ -57,8 +57,10 @@ fun EventsScreen(
                     TextButton(onClick = { retry++ }) { Text("Retry") }
                 }
             event?.let { e ->
+                if(e.cancelled)item { StatusPill("CANCELLED"); Text("The organizer cancelled this event. This ticket cannot be used for attendance.") }
                 item {
-                    if (e.imageUrl.isNotBlank())
+                    if(e.imagePath.isNotBlank())PrivateImage(e.imagePath,"Event photo")
+                    else if (e.imageUrl.isNotBlank())
                         coil.compose.AsyncImage(
                             e.imageUrl,
                             "Event image",
@@ -88,7 +90,8 @@ fun EventsScreen(
                             enabled =
                                 !state.busy &&
                                     (ticket != null ||
-                                        e.registrationEnabled &&
+                                        !e.cancelled && !e.archived && e.registrationEnabled &&
+                                            (e.registrationDeadline == null || e.registrationDeadline > System.currentTimeMillis()) &&
                                             e.startTime > System.currentTimeMillis()) &&
                                     ticket?.attended != true,
                             modifier = Modifier.fillMaxWidth(),
@@ -100,7 +103,7 @@ fun EventsScreen(
                             )
                         }
                     }
-                ticket?.let { t ->
+                ticket?.takeIf { !e.cancelled }?.let { t ->
                     item {
                         Text("Your event ticket", style = MaterialTheme.typography.titleMedium)
                         TicketQr(t)
@@ -135,6 +138,7 @@ fun EventsScreen(
             }
             feedState(CampusFeed.EVENTS, state, vm, "No upcoming events.")
             val filtered = events.filter {
+                !it.archived && (!it.cancelled || myEvents) &&
                 (!myEvents || tickets.any { t -> t.eventId == it.id }) &&
                     (category == null || it.category == category) &&
                     "${it.title} ${it.category}".contains(search, true)

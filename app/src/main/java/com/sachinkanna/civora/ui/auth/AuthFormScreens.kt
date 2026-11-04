@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -28,16 +28,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.sachinkanna.civora.ui.components.CivoraGradientBackground
+import com.sachinkanna.civora.ui.components.CivoraBackground
 
 @Composable
 fun LoginScreen(
     onBackClick: () -> Unit,
     onCreateAccountClick: () -> Unit,
     onAuth: (String, String) -> Unit,
+    modifier: Modifier = Modifier,
     error: String? = null,
     loading: Boolean = false,
-    modifier: Modifier = Modifier,
 ) =
     AuthFormScreen(
         title = "Welcome back",
@@ -59,9 +59,9 @@ fun RegisterScreen(
     onBackClick: () -> Unit,
     onSignInClick: () -> Unit,
     onAuth: (String, String, String) -> Unit,
+    modifier: Modifier = Modifier,
     error: String? = null,
     loading: Boolean = false,
-    modifier: Modifier = Modifier,
 ) =
     AuthFormScreen(
         title = "Create your account",
@@ -110,7 +110,7 @@ private fun AuthFormScreen(
             password.length >= 8 &&
             (!showName || (confirmPassword == password && confirmPassword.isNotBlank()))
 
-    CivoraGradientBackground(modifier = modifier) {
+    CivoraBackground(modifier = modifier) {
         Column(
             modifier =
                 Modifier.fillMaxSize()
@@ -167,7 +167,7 @@ private fun AuthFormScreen(
             Button(
                 onClick = { onSubmit(name, email, password) },
                 enabled = canSubmit && !loading,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min=56.dp),
                 colors = ButtonDefaults.buttonColors(),
             ) {
                 Text(if (loading) "Please wait..." else submitLabel)
@@ -195,7 +195,7 @@ private fun AuthField(
         label = { Text(label) },
         singleLine = true,
         isError = isError,
-        supportingText = supportingText?.let { { Text(it) } },
+        supportingText = if(isError) supportingText?.let { { Text(it) } } else null,
         keyboardOptions =
             androidx.compose.foundation.text.KeyboardOptions(keyboardType = keyboardType),
         modifier = Modifier.fillMaxWidth(),

@@ -14,6 +14,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {
     @Test
+    fun isolatedDemoUsesEmulatorProjectAndDisablesPushAutoInitialization() {
+        org.junit.Assume.assumeTrue(FirebaseEnvironment.isDemo)
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals(context.getString(R.string.firebase_emulator_project),com.google.firebase.FirebaseApp.getInstance().options.projectId)
+        assertFalse(com.google.firebase.messaging.FirebaseMessaging.getInstance().isAutoInitEnabled)
+    }
+    @Test
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext

@@ -13,15 +13,19 @@ enum class ReportCategory {
 enum class ReportStatus {
     SUBMITTED,
     ASSIGNED,
+    ACCEPTED,
     IN_PROGRESS,
+    REVIEW_REQUIRED,
     RESOLVED,
     REJECTED;
 
     fun canTransitionTo(next: ReportStatus): Boolean =
         when (this) {
             SUBMITTED -> next == ASSIGNED || next == REJECTED
-            ASSIGNED -> next == IN_PROGRESS || next == REJECTED
-            IN_PROGRESS -> next == RESOLVED || next == REJECTED
+            ASSIGNED -> next == ACCEPTED || next == IN_PROGRESS || next == REJECTED
+            ACCEPTED -> next == IN_PROGRESS || next == REJECTED
+            IN_PROGRESS -> next == REVIEW_REQUIRED || next == RESOLVED || next == REJECTED
+            REVIEW_REQUIRED -> next == RESOLVED || next == IN_PROGRESS || next == REJECTED
             else -> false
         }
 }
@@ -38,4 +42,10 @@ data class CampusReport(
     val status: ReportStatus = ReportStatus.SUBMITTED,
     val assignedTo: String = "",
     val resolutionNote: String = "",
+    val imagePath: String = "",
+    val completionImagePath: String = "",
+    val assignedToName: String = "",
+    val progressNote: String = "",
+    val priority: String = "normal",
+    val updatedAt: Long = 0,
 )

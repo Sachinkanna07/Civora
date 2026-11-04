@@ -1,3 +1,4 @@
+require('./local-environment');
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {hasCapacity, priceOrder,canTransition,foodTransitions,reportTransitions} = require('../policy');

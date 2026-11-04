@@ -1,5 +1,5 @@
 const foodTransitions = {PLACED: ['ACCEPTED', 'CANCELLED'], ACCEPTED: ['PREPARING', 'CANCELLED'], PREPARING: ['READY'], READY: ['COMPLETED']};
-const reportTransitions = {SUBMITTED: ['ASSIGNED', 'REJECTED'], ASSIGNED: ['IN_PROGRESS', 'REJECTED'], IN_PROGRESS: ['RESOLVED', 'REJECTED']};
+const reportTransitions = {SUBMITTED: ['ASSIGNED', 'REJECTED'], ASSIGNED: ['ACCEPTED', 'IN_PROGRESS', 'REJECTED'], ACCEPTED: ['IN_PROGRESS', 'REJECTED'], IN_PROGRESS: ['REVIEW_REQUIRED', 'RESOLVED', 'REJECTED'], REVIEW_REQUIRED: ['RESOLVED', 'IN_PROGRESS', 'REJECTED']};
 function canTransition(table, from, to) { return (table[from] || []).includes(to); }
 function hasCapacity(event) { return event.registrationEnabled === true && Number.isInteger(event.capacity) && event.capacity >= 0 && Number.isInteger(event.registeredCount) && event.registeredCount >= 0 && (event.capacity === 0 || event.registeredCount < event.capacity); }
 function priceOrder(menu, quantities) {

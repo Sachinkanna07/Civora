@@ -1,0 +1,24 @@
+{
+    "builtAt":  "2026-10-12T22:39:41+05:30",
+    "signing":  "debug APK development-signed; release APK/AAB unsigned",
+    "reviewedCommit":  "working-tree engineering pass based on fd0b068",
+    "sourceCommit":  "fd0b068",
+    "artifacts":  [
+                      {
+                          "path":  "demo/final/apk/Civora-emulator-debug.apk",
+                          "sha256":  "72f6b8fa8bf1b6122576b2147c085c7ab043f4b6b769e7324b0a4a7d07928de3",
+                          "bytes":  29618817
+                      },
+                      {
+                          "path":  "demo/final/apk/Civora-release-unsigned.apk",
+                          "sha256":  "172160d73588ae79698e301e7a03cd6db61c4c43d0128cdc4923c0dd0e86c89d",
+                          "bytes":  4073906
+                      },
+                      {
+                          "path":  "demo/final/aab/Civora-release-unsigned.aab",
+                          "sha256":  "ad7b677798b46d9e8d6975bb2ae8ed28a6695e964e55e7379341734c7fcbd9a6",
+                          "bytes":  8823457
+                      }
+                  ],
+    "verification":  "27 Android unit tests, Android lint/build, 27 backend tests and four API 35 connected tests passed"
+}

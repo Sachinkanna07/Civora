@@ -24,3 +24,21 @@ ui-debug.log
 /demo/*.mp4
 /demo/emulator-data/
 /demo/__pycache__/
+
+# Signing, secrets, test logs and generated evidence.
+*.jks
+*.keystore
+*.pem
+*.key
+**/.env
+**/.env.*
+!**/.env.example
+/docs/evidence/
+/.tmp-firebase-cache*/
+/demo/final/*.mp4
+/demo/final/apk/
+/demo/final/aab/
+/demo/final/*.xml
+/demo/final/*.log
+/demo/final/screenshots/
+/functions/test/fixtures/*.jpg

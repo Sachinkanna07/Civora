@@ -22,6 +22,8 @@ fun DocumentSnapshot.announcement() =
         getString("authorName").orEmpty(),
         time("createdAt"),
         time("expiresAt").takeIf { it > 0 },
+        getString("imagePath").orEmpty(),
+        getBoolean("archived") ?: false,
     )
 
 fun DocumentSnapshot.event() =
@@ -41,6 +43,10 @@ fun DocumentSnapshot.event() =
         getString("createdBy").orEmpty(),
         getString("clubId").orEmpty(),
         (getLong("registeredCount") ?: 0).toInt(),
+        getString("imagePath").orEmpty(),
+        getBoolean("archived") ?: false,
+        getBoolean("cancelled") ?: false,
+        time("registrationDeadline").takeIf {it>0},
     )
 
 class AnnouncementRepository(private val db: FirebaseFirestore = FirebaseFirestore.getInstance()) {

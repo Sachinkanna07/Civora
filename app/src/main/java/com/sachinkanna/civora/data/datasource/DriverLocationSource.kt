@@ -6,89 +6,40 @@ import android.content.pm.PackageManager
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
-import com.google.firebase.firestore.*
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.FirebaseFunctionsException
 
-/** Foreground-only location publisher. Never requests background permission. */
-class DriverLocationSource(
-    context: Context,
-    private val tripId: String,
-    private val onState: (String) -> Unit,
-) {
-    private val context = context.applicationContext
-    private val debug = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
-    private val client = LocationServices.getFusedLocationProviderClient(context)
-    private var lastSent = 0L
-    private var inFlight = false
-    private var running = false
-    private val callback =
-        object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                val location = result.lastLocation ?: return
-                val now = android.os.SystemClock.elapsedRealtime()
-                if (
-                    !running ||
-                        inFlight ||
-                        now - lastSent < 15_000 ||
-                        location.accuracy > 200 ||
-                        (androidx.core.location.LocationCompat.isMock(location) && !debug)
-                )
-                    return
-                lastSent = now
-                inFlight = true
-                FirebaseFirestore.getInstance()
-                    .collection("activeTrips")
-                    .document(tripId)
-                    .update(
-                        mapOf(
-                            "latitude" to location.latitude,
-                            "longitude" to location.longitude,
-                            "accuracy" to location.accuracy.toDouble(),
-                            "locationCapturedAt" to
-                                com.google.firebase.Timestamp(java.util.Date(location.time)),
-                            "locationUpdatedAt" to FieldValue.serverTimestamp(),
-                        )
-                    )
-                    .addOnSuccessListener { onState("Location shared") }
-                    .addOnFailureListener {
-                        onState("Location could not be shared. Check your connection.")
-                    }
-                    .addOnCompleteListener { inFlight = false }
-            }
+/** A single fresh fix per request. Callable writes never accumulate in an offline Firestore queue. */
+class DriverLocationSource(context: Context,private val tripId: String,private val onState: (String)->Unit,private val onRevoked: ()->Unit={}) {
+    private val context=context.applicationContext
+    private val client=LocationServices.getFusedLocationProviderClient(context)
+    private var lastAttempt=0L;private var inFlight=false;private var running=false;private var failures=0
+    private val callback=object: LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            val location=result.lastLocation?:return
+            val now=android.os.SystemClock.elapsedRealtime()
+            val retryDelay=(15000L*(1L shl failures.coerceAtMost(3))).coerceAtMost(120000)
+            if(!running||inFlight||now-lastAttempt<retryDelay)return
+            val mock=androidx.core.location.LocationCompat.isMock(location)
+            if(!location.hasAccuracy()||location.accuracy>200||location.accuracy<0||System.currentTimeMillis()-location.time>120000) {onState("Waiting for an accurate, fresh GPS fix");return}
+            if(mock&&!com.sachinkanna.civora.FirebaseEnvironment.isDemo) {onState("Mock GPS is not allowed on the campus service");return}
+            lastAttempt=now;inFlight=true
+            onState("Sending current location?")
+            FirebaseFunctions.getInstance().getHttpsCallable("publishTripLocation").call(mapOf("busId" to tripId,"latitude" to location.latitude,"longitude" to location.longitude,"accuracy" to location.accuracy.toDouble(),"capturedAt" to location.time,"locationSource" to if(mock)"SIMULATED"else"GPS"))
+                .addOnSuccessListener {if(running) {failures=0;onState(if(mock)"Demo GPS shared (simulated)"else"GPS shared · updates every 15 seconds")}}
+                .addOnFailureListener {e->if(running) {
+                    failures=(failures+1).coerceAtMost(3)
+                    if(e is FirebaseFunctionsException&&e.code==FirebaseFunctionsException.Code.PERMISSION_DENIED) {onState("Trip stopped or assignment changed");onRevoked()}
+                    else onState("Location update interrupted · retrying with a fresh fix")
+                }}.addOnCompleteListener {inFlight=false}
         }
-
+    }
     fun start() {
-        if (
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-            ) != PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            onState("Location permission needed")
-            return
-        }
-        running = true
-        onState("Waiting for GPS. Keep this screen open.")
-        try {
-            client
-                .requestLocationUpdates(
-                    LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15_000)
-                        .setMinUpdateIntervalMillis(15_000)
-                        .build(),
-                    callback,
-                    Looper.getMainLooper(),
-                )
-                .addOnFailureListener { onState("Location service unavailable") }
-        } catch (e: SecurityException) {
-            onState("Location permission denied")
-        }
+        if(running)return
+        if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED&&ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED) {onState("Location permission needed");onRevoked();return}
+        running=true;onState("Waiting for GPS")
+        try {client.requestLocationUpdates(LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY,15000).setMinUpdateIntervalMillis(15000).build(),callback,Looper.getMainLooper()).addOnFailureListener {onState("Location service unavailable");onRevoked()}}
+        catch(_: SecurityException) {onState("Location permission revoked");onRevoked()}
     }
-
-    fun stop() {
-        running = false
-        client.removeLocationUpdates(callback)
-    }
+    fun stop() {running=false;client.removeLocationUpdates(callback)}
 }

@@ -5,6 +5,8 @@ data class Canteen(
     val name: String = "",
     val vendorId: String = "",
     val open: Boolean = false,
+    val paused: Boolean = false,
+    val preparationMinutes: Int? = null,
 )
 
 data class MenuItem(
@@ -14,6 +16,8 @@ data class MenuItem(
     val pricePaise: Long = 0,
     val available: Boolean = false,
     val imageUrl: String = "",
+    val category: String = "Meals",
+    val description: String = "",
 )
 
 data class CartItem(val item: MenuItem, val quantity: Int)
@@ -56,6 +60,9 @@ data class FoodOrder(
     val totalPaise: Long = 0,
     val createdAt: Long = 0,
     val paymentState: String = "PAY_AT_COUNTER",
+    val canteenName: String = "",
+    val preparationMinutes: Int? = null,
+    val updatedAt: Long = 0,
 )
 
 fun cartTotal(items: List<CartItem>): Long = items.sumOf { it.item.pricePaise * it.quantity }

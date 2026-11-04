@@ -8,6 +8,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.platform.LocalContext
+import com.sachinkanna.civora.AppNavigation
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,6 +23,7 @@ import com.sachinkanna.civora.ui.components.*
 import com.sachinkanna.civora.ui.discover.DiscoverScreen
 import com.sachinkanna.civora.ui.events.EventsScreen
 import com.sachinkanna.civora.ui.food.FoodScreen
+import com.sachinkanna.civora.ui.mess.MessScreen
 import com.sachinkanna.civora.ui.profile.ProfileScreen
 import com.sachinkanna.civora.ui.reports.ReportsScreen
 import com.sachinkanna.civora.ui.timetable.TimetableScreen
@@ -28,11 +32,7 @@ import com.sachinkanna.civora.ui.transport.*
 import com.sachinkanna.civora.viewmodel.*
 
 private enum class Tab(val label: String) {
-    TODAY("Today"),
-    DISCOVER("Discover"),
-    ACTION("Action"),
-    ACTIVITY("Activity"),
-    YOU("You"),
+    TODAY("Today"), DISCOVER("Services"), ACTIVITY("Inbox"), YOU("Profile")
 }
 
 @Composable
@@ -40,12 +40,15 @@ fun StudentShell(
     profile: UserProfile,
     onLogout: () -> Unit,
     onRefreshProfile: () -> Unit = {},
-    vm: CampusWorkspaceViewModel = viewModel(),
+    vm: CampusWorkspaceViewModel = viewModel(factory = CampusWorkspaceViewModel.factory(LocalContext.current)),
 ) {
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
     var page by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(profile) { vm.connect(profile) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val holder = rememberSaveableStateHolder()
+    val destination by AppNavigation.destination.collectAsStateWithLifecycle()
+    LaunchedEffect(destination) { destination?.let { page=it; AppNavigation.destination.value=null } }
     val open: (String) -> Unit = { page = it }
     val back: () -> Unit = { page = null }
     BackHandler(page != null) { back() }
@@ -62,8 +65,7 @@ fun StudentShell(
                                     when (t) {
                                         Tab.TODAY -> Icons.Default.Today
                                         Tab.DISCOVER -> Icons.Default.Explore
-                                        Tab.ACTION -> Icons.Default.AddCircle
-                                        Tab.ACTIVITY -> Icons.Default.Notifications
+                                                                                Tab.ACTIVITY -> Icons.Default.Notifications
                                         Tab.YOU -> Icons.Default.Person
                                     },
                                     t.label,
@@ -75,9 +77,8 @@ fun StudentShell(
                 }
         }
     ) { padding ->
-        Column(Modifier.padding(padding)) {
-            ActionMessage(state, vm)
-            Box(Modifier.weight(1f)) {
+        Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
+            Box(Modifier.fillMaxSize()) {
                 when {
                     page == "Food" || page?.startsWith("Order:") == true ->
                         FoodScreen(
@@ -86,6 +87,7 @@ fun StudentShell(
                             back,
                             page?.substringAfter(':')?.takeIf { page?.startsWith("Order:") == true },
                         )
+                    page == "Mess" -> MessScreen(profile,state,vm,back)
                     page == "Bus" -> TransportScreen(profile, state, vm, back)
                     page == "Timetable" -> TimetableScreen(state, vm, back)
                     page == "Report" || page?.startsWith("Report:") == true ->
@@ -119,34 +121,19 @@ fun StudentShell(
                     page == "Clubs" -> ClubsScreen(state, vm, back, open)
                     page == "Campus services" -> CampusLocationsScreen(state, vm, back)
                     page == "Inbox" -> ActivityScreen(state, vm, open, true, back)
-                    else ->
+                    else -> holder.SaveableStateProvider(tab.name) {
                         when (tab) {
                             Tab.TODAY -> TodayScreen(profile, state, vm, open)
                             Tab.DISCOVER -> DiscoverScreen(state, vm, open)
                             Tab.ACTIVITY -> ActivityScreen(state, vm, open)
                             Tab.YOU ->
-                                ProfileScreen(profile, state, vm, onRefreshProfile, onLogout, open)
-                            Tab.ACTION ->
-                                CampusPage("What do you need?") {
-                                    items(listOf("Food", "Events", "Report", "Bus", "Timetable")) {
-                                        action ->
-                                        CampusCard(
-                                            action,
-                                            when (action) {
-                                                "Food" -> "Order from a campus canteen"
-                                                "Events" -> "Register or show your QR ticket"
-                                                "Report" -> "Tell campus operations about an issue"
-                                                "Bus" -> "Check routes and current trips"
-                                                else -> "Check your next class"
-                                            },
-                                        ) {
-                                            open(action)
-                                        }
-                                    }
-                                }
+                                ProfileScreen(profile, state, vm, onRefreshProfile, { vm.disconnect(); onLogout() }, open)
+
                         }
                 }
+                }
             }
+            Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) { ActionMessage(state, vm) }
         }
     }
 }

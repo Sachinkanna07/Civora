@@ -1,0 +1,21 @@
+{
+  "institutionName": "KPR Institute of Engineering and Technology",
+  "institutionShortName": "KPRIET",
+  "campusAddress": "Arasur, Coimbatore, Tamil Nadu, India, 641407",
+  "emailDomain": "kpriet.ac.in",
+  "timezone": "Asia/Kolkata",
+  "officialWebsite": "https://www.kpriet.ac.in/",
+  "referencePrivacyPolicy": "https://www.kpriet.ac.in/index.php/privacy-policy",
+  "endorsementApproved": false,
+  "supportEmail": "",
+  "privacyEmail": "",
+  "retention": {
+    "approved": false,
+    "productionDeletionEnabled": false,
+    "gpsDays": 7,
+    "foodOrderDays": 90,
+    "eventAttendanceYears": 1,
+    "resolvedReportYears": 1,
+    "operationalLogDays": 90
+  }
+}

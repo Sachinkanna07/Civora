@@ -13,35 +13,41 @@ import com.sachinkanna.civora.viewmodel.*
 
 @Composable
 fun AttendanceScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back: () -> Unit) {
+    var eventId by rememberSaveable {mutableStateOf("")}
+    val events=state.values<CampusEvent>(CampusFeed.EVENTS)
     var ticket by rememberSaveable { mutableStateOf("") }
+    var scanning by remember { mutableStateOf(false) }
+    if(scanning) TicketScanner(onScanned={ ticket=it; scanning=false },onClose={scanning=false})
     CampusPage("Event attendance", back) {
         item {
             Text(
-                "Scan the student's ticket with your camera scanner and paste the ticket code here to record attendance."
+                "Scan a student ticket, then validate it to record attendance."
             )
+            Button(onClick={scanning=true},enabled=!state.busy) { Text("Scan ticket with camera") }
             OutlinedTextField(
                 ticket,
                 { ticket = it.take(500) },
-                label = { Text("civora:registrationId:token") },
+                label = { Text("Ticket code (fallback)") },
                 modifier = Modifier.fillMaxWidth(),
             )
-            val parts = ticket.split(':')
+            val parts = parseTicketPayload(ticket)
             Button(
                 onClick = {
                     vm.action(
                         "checkIn",
-                        mapOf("registrationId" to parts[1], "token" to parts[2]),
+                        mapOf("registrationId" to parts!!.first, "token" to parts.second),
                         "Attendance recorded",
                     )
                 },
-                enabled = !state.busy && parts.size == 3 && parts[0] == "civora",
+                enabled = !state.busy && parts != null,
             ) {
                 Text("Validate and check in")
             }
         }
+        item {SelectField("Event",eventId,events.map {Choice(it.id,it.title,dateTime(it.startTime))},{eventId=it},allowNone=true)}
         feedState(CampusFeed.REGISTRATIONS, state, vm, "No registered students for your events.")
-        items(state.values<Ticket>(CampusFeed.REGISTRATIONS), key = { it.id }) { t ->
-            CampusCard(t.id, "Event ${t.eventId}", if (t.attended) "ATTENDED" else "REGISTERED")
+        items(state.values<Ticket>(CampusFeed.REGISTRATIONS).filter {eventId.isBlank()||it.eventId==eventId}, key = { it.id }) { t ->
+            CampusCard(t.userName.ifBlank {"Registered student"}, t.eventTitle.ifBlank {events.find {it.id==t.eventId}?.title?:"Campus event"}, if (t.attended) "ATTENDED" else "REGISTERED")
         }
     }
 }

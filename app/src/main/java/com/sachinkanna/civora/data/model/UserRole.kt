@@ -10,7 +10,9 @@ enum class UserRole(
     FACULTY("faculty", "Faculty", "Manage announcements, attendance & departmental updates"),
     ADMIN("admin", "Admin", "Supervise campus operations, user roles & emergency alerts"),
     VENDOR("vendor", "Vendor", "Manage canteen items, inventory & incoming student orders"),
-    DRIVER("driver", "Driver", "Broadcast live bus location, routes & schedule updates");
+    DRIVER("driver", "Driver", "Vehicle, trip and transport updates"),
+    MAINTENANCE("maintenance", "Maintenance", "Assigned campus repairs and work history"),
+    MESS("mess", "Mess operator", "Meal eligibility and check-in operations");
 
     companion object {
         fun fromKey(key: String?): UserRole? = entries.find {

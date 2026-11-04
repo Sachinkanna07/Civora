@@ -16,6 +16,7 @@ fun InvitationsScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back:
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var department by rememberSaveable { mutableStateOf("") }
+    var team by rememberSaveable {mutableStateOf("")}
     var role by rememberSaveable { mutableStateOf(UserRole.FACULTY) }
     CampusPage("Invite campus staff", back) {
         item {
@@ -40,8 +41,9 @@ fun InvitationsScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back:
                 label = { Text("Department") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            OutlinedTextField(team,{team=it.take(100)},label={Text("Team (optional)")},modifier=Modifier.fillMaxWidth())
             FlowRow {
-                listOf(UserRole.FACULTY, UserRole.VENDOR, UserRole.DRIVER).forEach { r ->
+                listOf(UserRole.FACULTY, UserRole.VENDOR, UserRole.DRIVER, UserRole.MAINTENANCE, UserRole.MESS).forEach { r ->
                     FilterChip(role == r, { role = r }, label = { Text(r.displayName) })
                 }
             }
@@ -54,6 +56,7 @@ fun InvitationsScreen(state: WorkspaceState, vm: CampusWorkspaceViewModel, back:
                             "email" to email,
                             "role" to role.roleKey,
                             "department" to department,
+                            "team" to team,
                         ),
                         "Account provisioned",
                     )

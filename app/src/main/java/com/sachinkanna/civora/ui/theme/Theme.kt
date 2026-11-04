@@ -6,15 +6,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme =
     darkColorScheme(
-        primary = Violet400,
-        onPrimary = Color.White,
+        primary = Color(0xFFBDB8FF),
+        onPrimary = Navy900,
         primaryContainer = Navy800,
         onPrimaryContainer = Violet200,
         secondary = Cyan400,
@@ -33,9 +33,9 @@ private val DarkColorScheme =
 
 private val LightColorScheme =
     lightColorScheme(
-        primary = Violet700,
+        primary = Color(0xFF5046B8),
         onPrimary = Color.White,
-        primaryContainer = Violet200,
+        primaryContainer = Color(0xFFEAE6FF),
         onPrimaryContainer = Navy900,
         secondary = Cyan600,
         onSecondary = Color.White,
@@ -60,9 +60,15 @@ fun CivoraTheme(
     val view = LocalView.current
 
     if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        DisposableEffect(view, darkTheme) {
+            val update = Runnable {
+                val window = (view.context as Activity).window
+                val controller = WindowCompat.getInsetsController(window, view)
+                controller.isAppearanceLightStatusBars = !darkTheme
+                controller.isAppearanceLightNavigationBars = !darkTheme
+            }
+            view.post(update)
+            onDispose { view.removeCallbacks(update) }
         }
     }
 
