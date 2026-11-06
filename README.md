@@ -1,20 +1,18 @@
-<div align="center">
+# Civora
 
-# 🏫 Civora
+An Android campus app built with Kotlin, Jetpack Compose and Firebase. A student can check their next class, register for an event, and order food for pickup. Campus staff use separate workspaces to check tickets, manage orders, and share bus locations.
 
-### Everything on campus. One app.
+[Run the emulator demo](demo/README.md) · [Browse all screens](demo/screenshots) · [Set up Firebase](#firebase-setup) · [Explore the tests](#testing)
 
-**Students** · **Faculty** · **Campus teams**
+| Plan the day | Carry an event ticket | Order from the canteen |
+| :---: | :---: | :---: |
+| [<img src="demo/screenshots/04-today.png" width="180" alt="Civora Today screen showing a student’s day">](demo/screenshots/04-today.png) | [<img src="demo/screenshots/07-event-ticket.png" width="180" alt="Event ticket in the student workspace">](demo/screenshots/07-event-ticket.png) | [<img src="demo/screenshots/08-food-cart.png" width="180" alt="Canteen cart in the student workspace">](demo/screenshots/08-food-cart.png) |
 
-[Features](#core-features) · [Architecture](#architecture) · [Setup](#firebase-setup) · [Testing](#testing)
+Captured on a Pixel 8 emulator running Android 15 with fictional campus data. The [deployment report](docs/LIVE_DEPLOYMENT_REPORT.md) records the local checks and remaining setup for live services.
 
-</div>
+## Follow an event ticket
 
-Civora is a native Android campus app connecting students, faculty, campus administrators, canteen vendors and bus drivers. It combines the next class, campus notices, events, orders and transport into a useful daily workspace.
-
-## What Civora solves
-
-Campus information and operations are often split between notice boards, messaging groups and separate portals. Civora gives students a daily overview and lets campus staff operate the workflows behind it.
+A student registers for an upcoming event. A Cloud Function checks capacity, creates the registration and updates the seat count in one Firestore transaction. When faculty check the ticket, the backend checks the token, the organizer and the check-in window before recording attendance. A second scan cannot mark the same ticket twice. [Registration and check-in code](functions/workflows/events.js) · [Workflow tests](functions/test/workflows.integration.test.js)
 
 ## User roles
 
@@ -93,14 +91,7 @@ For existing data, back up the database, pause registration writes and run `func
 
 Open in Android Studio with Android SDK 36.1 installed and use the Gradle wrapper. Run `./gradlew assembleDebug` (Windows: `./gradlew.bat assembleDebug`). The debug APK is `app/build/outputs/apk/debug/app-debug.apk`.
 
-For local Firebase without real credentials:
-
-```sh
-npx firebase-tools emulators:start --project demo-civora --only auth,firestore,functions
-./gradlew assembleDebug -Pcivora.emulatorHost=10.0.2.2
-```
-
-The emulator host flag is honored only in debug builds. Android Emulator reaches the host through `10.0.2.2`; use your computer's reachable address for a physical device. Create users and campus data through the app and trusted workflows. No permanent production seed data is included.
+For a populated local demonstration, follow the [emulator walkthrough](demo/README.md). It includes the seed step, the PowerShell commands used for ADB port forwarding, and separate student and staff accounts. The emulator host override applies to debug builds. For a live project, populate campus data through the app and its trusted workflows.
 
 ## Required manual configuration
 
@@ -121,7 +112,7 @@ The plain Node command runs policy tests and skips emulator checks when emulator
 
 ## Screenshots
 
-Verified product screenshots are not yet included. Capture Today, Discover, ticket, vendor, driver and admin screens from a configured Android device; do not represent mockups as runtime screenshots.
+The [screenshot gallery](demo/screenshots) covers the student app and the [admin](demo/screenshots/14-admin-dashboard.png), [vendor](demo/screenshots/15-vendor-dashboard.png), [driver](demo/screenshots/16-driver-dashboard.png) and [faculty](demo/screenshots/17-faculty-dashboard.png) workspaces. The emulator uses fictional accounts. The bus screen demonstrates the empty location state.
 
 ## Roadmap
 
